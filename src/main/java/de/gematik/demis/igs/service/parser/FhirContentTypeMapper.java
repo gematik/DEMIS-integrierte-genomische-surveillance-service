@@ -1,0 +1,73 @@
+/*
+ * Copyright [2024], gematik GmbH
+ *
+ * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
+ * European Commission – subsequent versions of the EUPL (the "Licence").
+ * You may not use this work except in compliance with the Licence.
+ *
+ * You find a copy of the Licence in the "Licence" file or at
+ * https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the Licence is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
+ * In case of changes by gematik find details in the "Readme" file.
+ *
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ */
+
+package de.gematik.demis.igs.service.parser;
+
+/*-
+ * #%L
+ * Integrierte-Genomische-Surveillance-Service
+ * %%
+ * Copyright (C) 2025 gematik GmbH
+ * %%
+ * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
+ * European Commission – subsequent versions of the EUPL (the "Licence").
+ * You may not use this work except in compliance with the Licence.
+ *
+ * You find a copy of the Licence in the "Licence" file or at
+ * https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the Licence is distributed on an "AS IS" basis,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
+ * In case of changes by gematik find details in the "Readme" file.
+ *
+ * See the Licence for the specific language governing permissions and limitations under the Licence.
+ * #L%
+ */
+
+import static lombok.AccessLevel.PRIVATE;
+
+import jakarta.validation.constraints.NotNull;
+import java.util.Map;
+import lombok.NoArgsConstructor;
+import org.springframework.http.MediaType;
+
+@NoArgsConstructor(access = PRIVATE)
+public class FhirContentTypeMapper {
+  private static final Map<String, MediaType> representationMap =
+      Map.of(
+          "application/json", MediaType.APPLICATION_JSON,
+          "application/xml", MediaType.APPLICATION_XML,
+          "application/json+fhir", MediaType.APPLICATION_JSON,
+          "application/fhir+json", MediaType.APPLICATION_JSON,
+          "application/json;charset=UTF-8", MediaType.APPLICATION_JSON,
+          "application/xml;charset=UTF-8", MediaType.APPLICATION_XML,
+          "application/json+fhir;charset=UTF-8", MediaType.APPLICATION_JSON,
+          "application/fhir+json;charset=UTF-8", MediaType.APPLICATION_JSON);
+
+  /**
+   * Maps content type of the incoming FHIR resource to a standardized mimetype
+   *
+   * @param mediaType content type of incoming resource
+   * @return matching mimetype
+   */
+  public static MediaType map(final @NotNull String mediaType) {
+    String mediaTypeResult = mediaType.replace(" ", "");
+    return representationMap.get(mediaTypeResult);
+  }
+}
