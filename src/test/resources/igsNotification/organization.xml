@@ -1,0 +1,65 @@
+<!--
+  #%L
+  Integrierte-Genomische-Surveillance-Service
+  %%
+  Copyright (C) 2025 gematik GmbH
+  %%
+  Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
+  European Commission – subsequent versions of the EUPL (the "Licence").
+  You may not use this work except in compliance with the Licence.
+  
+  You find a copy of the Licence in the "Licence" file or at
+  https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+  
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the Licence is distributed on an "AS IS" basis,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
+  In case of changes by gematik find details in the "Readme" file.
+  
+  See the Licence for the specific language governing permissions and limitations under the Licence.
+  #L%
+  -->
+<Organization>
+  <id value="a42f380e-b23a-3f50-a096-26665a6e4257"/>
+  <meta>
+    <profile value="https://demis.rki.de/fhir/StructureDefinition/SubmittingFacility"/>
+  </meta>
+  <identifier>
+    <system value="https://fhir.kbv.de/NamingSystem/KBV_NS_Base_BSNR"/>
+    <value value="987654321"/>
+  </identifier>
+  <name value="Prim&#228;rlabor"/>
+  <telecom>
+    <system value="phone"/>
+    <value value="03098765410"/>
+    <use value="work"/>
+  </telecom>
+  <telecom>
+    <system value="fax"/>
+    <value value="03098765411"/>
+    <use value="work"/>
+  </telecom>
+  <telecom>
+    <system value="email"/>
+    <value value="ifsg@primaerlabor-gibt-es-nicht.de"/>
+    <use value="work"/>
+  </telecom>
+  <telecom>
+    <system value="url"/>
+    <value value="http://primaerlabor-gibt-es-nicht.de"/>
+    <use value="work"/>
+  </telecom>
+  <address>
+    <line value="Dingsweg 321"/>
+    <city value="Berlin"/>
+    <postalCode value="13055"/>
+    <country value="20422"/>
+  </address>
+  <contact>
+    <name>
+      <use value="official"/>
+      <family value="Kontakt"/>
+      <given value="Caroline"/>
+    </name>
+  </contact>
+</Organization>

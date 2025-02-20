@@ -1,0 +1,465 @@
+<!--
+  #%L
+  Integrierte-Genomische-Surveillance-Service
+  %%
+  Copyright (C) 2025 gematik GmbH
+  %%
+  Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
+  European Commission – subsequent versions of the EUPL (the "Licence").
+  You may not use this work except in compliance with the Licence.
+  
+  You find a copy of the Licence in the "Licence" file or at
+  https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+  
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the Licence is distributed on an "AS IS" basis,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
+  In case of changes by gematik find details in the "Readme" file.
+  
+  See the Licence for the specific language governing permissions and limitations under the Licence.
+  #L%
+  -->
+<Parameters xmlns="http://hl7.org/fhir">
+  <meta>
+    <profile
+      value="https://demis.rki.de/fhir/igs/StructureDefinition/ProcessNotificationSequenceRequestParameters"/>
+  </meta>
+  <parameter>
+    <name value="Bundle"/>
+    <resource>
+      <Bundle xmlns="http://hl7.org/fhir">
+        <meta>
+          <lastUpdated value="2023-01-14T08:16:01.000+01:00"/>
+          <profile value="https://demis.rki.de/fhir/igs/StructureDefinition/NotificationBundleSequence"/>
+        </meta>
+        <identifier>
+          <system value="https://demis.rki.de/fhir/NamingSystem/NotificationBundleId"/>
+          <value value="fb8d651b-3305-34b9-9e7f-a7809b62767d"/>
+        </identifier>
+        <type value="document"/>
+        <timestamp value="2023-01-14T08:16:01.000+01:00"/>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/Composition/4a19589d-3ae8-3439-baea-b2e0f60a98b2"/>
+          <resource>
+            <Composition>
+              <id value="4a19589d-3ae8-3439-baea-b2e0f60a98b2"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/igs/StructureDefinition/NotificationSequence"/>
+              </meta>
+              <identifier>
+                <system value="https://demis.rki.de/fhir/NamingSystem/NotificationId"/>
+                <value value="d1c9252a-9809-4f17-bc59-16d6b2abaaae"/>
+              </identifier>
+              <status value="final"/>
+              <type>
+                <coding>
+                  <system value="http://loinc.org"/>
+                  <code value="34782-3"/>
+                  <display value="Infectious disease Note"/>
+                </coding>
+              </type>
+              <category>
+                <coding>
+                  <system value="http://loinc.org"/>
+                  <code value="11502-2"/>
+                  <display value="Laboratory report"/>
+                </coding>
+              </category>
+              <subject>
+                <reference value="Patient/3661f735-d3db-3c22-909d-3a16a7334c1d"/>
+              </subject>
+              <date value="2023-01-14T08:16:00.000+01:00"/>
+              <author>
+                <reference value="PractitionerRole/c92c9646-e0c8-3c3d-840c-33e505648a5c"/>
+              </author>
+              <title value="Sequenzmeldung"/>
+              <relatesTo>
+                <code value="appends"/>
+                <targetReference>
+                  <type value="Composition"/>
+                  <identifier>
+                    <system value="https://demis.rki.de/fhir/NamingSystem/NotificationId"/>
+                    <value value="f8585efb-1872-4a4f-b88d-8c889e93487b"/> <!-- submitterGeneratedNotificationID -->
+                  </identifier>
+                </targetReference>
+              </relatesTo>
+              <section>
+                <code>
+                  <coding>
+                    <system value="http://loinc.org"/>
+                    <code value="11502-2"/>
+                    <display value="Laboratory report"/>
+                  </coding>
+                </code>
+                <entry>
+                  <reference value="DiagnosticReport/2e24f26e-c450-301c-ac1e-da2205a69e39"/>
+                </entry>
+              </section>
+            </Composition>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl value="https://demis.rki.de/fhir/igs/Patient/3661f735-d3db-3c22-909d-3a16a7334c1d"/>
+          <resource>
+            <Patient>
+              <id value="3661f735-d3db-3c22-909d-3a16a7334c1d"/>
+              <meta>
+                <profile
+                  value="https://demis.rki.de/fhir/StructureDefinition/NotifiedPersonNotByName"/>
+              </meta>
+              <gender value="male"/>
+              <birthDate value="1978-12"/>
+              <address>
+                <extension url="https://demis.rki.de/fhir/StructureDefinition/AddressUse">
+                  <valueCoding>
+                    <system value="https://demis.rki.de/fhir/CodeSystem/addressUse"/>
+                    <code value="primary"/>
+                  </valueCoding>
+                </extension>
+                <postalCode value="130"/>
+              </address>
+            </Patient>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/PractitionerRole/c92c9646-e0c8-3c3d-840c-33e505648a5c"/>
+          <resource>
+            <PractitionerRole>
+              <id value="c92c9646-e0c8-3c3d-840c-33e505648a5c"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/StructureDefinition/NotifierRole"/>
+              </meta>
+              <organization>
+                <reference value="Organization/227a66a4-a2fe-34b9-ad24-55981d0d1d82"/>
+              </organization>
+            </PractitionerRole>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/PractitionerRole/d1b92d45-3811-3064-bad7-b3336e70e08c"/>
+          <resource>
+            <PractitionerRole>
+              <id value="d1b92d45-3811-3064-bad7-b3336e70e08c"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/StructureDefinition/SubmittingRole"/>
+              </meta>
+              <organization>
+                <reference value="Organization/a42f380e-b23a-3f50-a096-26665a6e4257"/>
+              </organization>
+            </PractitionerRole>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/Organization/a42f380e-b23a-3f50-a096-26665a6e4257"/>
+          <resource>
+            <Organization>
+              <id value="a42f380e-b23a-3f50-a096-26665a6e4257"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/StructureDefinition/SubmittingFacility"/>
+              </meta>
+              <identifier>
+                <system value="https://fhir.kbv.de/NamingSystem/KBV_NS_Base_BSNR"/>
+                <value value="987654321"/>
+              </identifier>
+              <name value="Prim&#228;rlabor"/>
+              <telecom>
+                <system value="phone"/>
+                <value value="03098765410"/>
+                <use value="work"/>
+              </telecom>
+              <telecom>
+                <system value="fax"/>
+                <value value="03098765411"/>
+                <use value="work"/>
+              </telecom>
+              <telecom>
+                <system value="email"/>
+                <value value="ifsg@primaerlabor-gibt-es-nicht.de"/>
+                <use value="work"/>
+              </telecom>
+              <telecom>
+                <system value="url"/>
+                <value value="http://primaerlabor-gibt-es-nicht.de"/>
+                <use value="work"/>
+              </telecom>
+              <address>
+                <line value="Dingsweg 321"/>
+                <city value="Berlin"/>
+                <postalCode value="13055"/>
+                <country value="20422"/>
+              </address>
+              <contact>
+                <name>
+                  <use value="official"/>
+                  <family value="Kontakt"/>
+                  <given value="Caroline"/>
+                </name>
+              </contact>
+            </Organization>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/DiagnosticReport/2e24f26e-c450-301c-ac1e-da2205a69e39"/>
+          <resource>
+            <DiagnosticReport>
+              <id value="2e24f26e-c450-301c-ac1e-da2205a69e39"/>
+              <meta>
+                <profile
+                  value="https://demis.rki.de/fhir/igs/StructureDefinition/LaboratoryReportSequence"/>
+              </meta>
+              <status value="final"/>
+              <code>
+                <coding>
+                  <system value="https://demis.rki.de/fhir/CodeSystem/notificationCategory"/>
+                  <code value="cvdp"/>
+                  <display value="Severe-Acute-Respiratory-Syndrome-Coronavirus-2 (SARS-CoV-2)"/>
+                </coding>
+              </code>
+              <subject>
+                <reference value="Patient/3661f735-d3db-3c22-909d-3a16a7334c1d"/>
+              </subject>
+              <issued value="2023-01-14T08:15:00.000+01:00"/>
+              <result>
+                <reference value="Observation/30aefd63-f71c-39b2-9191-8c162310c9c2"/>
+              </result>
+              <conclusion value="NACHWEIS eines meldepflichtigen Erregers"/>
+              <conclusionCode>
+                <coding>
+                  <system value="https://demis.rki.de/fhir/CodeSystem/conclusionCode"/>
+                  <code value="pathogenDetected"/>
+                  <display value="Meldepflichtiger Erreger nachgewiesen"/>
+                </coding>
+              </conclusionCode>
+            </DiagnosticReport>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/Observation/30aefd63-f71c-39b2-9191-8c162310c9c2"/>
+          <resource>
+            <Observation>
+              <id value="30aefd63-f71c-39b2-9191-8c162310c9c2"/>
+              <meta>
+                <profile
+                  value="https://demis.rki.de/fhir/igs/StructureDefinition/PathogenDetectionSequence"/>
+              </meta>
+              <status value="final"/>
+              <category>
+                <coding>
+                  <system value="http://terminology.hl7.org/CodeSystem/observation-category"/>
+                  <code value="laboratory"/>
+                </coding>
+              </category>
+              <code>
+                <coding>
+                  <system value="http://loinc.org"/>
+                  <code value="96741-4"/>
+                  <display value="SARS-CoV-2 (COVID-19) variant Sequencing Nom (Specimen)"/>
+                </coding>
+              </code>
+              <subject>
+                <reference value="Patient/3661f735-d3db-3c22-909d-3a16a7334c1d"/>
+              </subject>
+              <valueString value="BA.5.1.28"/>
+              <interpretation>
+                <coding>
+                  <system value="http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation"/>
+                  <code value="POS"/>
+                </coding>
+              </interpretation>
+              <method>
+                <coding>
+                  <system value="http://snomed.info/sct"/>
+                  <code value="117040002"/>
+                  <display value="Nucleic acid sequencing (procedure)"/>
+                </coding>
+              </method>
+              <specimen>
+                <reference value="Specimen/43b3b82f-656f-3e3d-a510-0109771c9e97"/>
+              </specimen>
+              <device>
+                <reference value="Device/b075aba8-edcb-38f7-973a-6ba64b240a3e"/>
+              </device>
+              <derivedFrom>
+                <reference value="MolecularSequence/26038f18-8c2d-3ad7-90e6-f52cfd779262"/>
+              </derivedFrom>
+            </Observation>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl value="https://demis.rki.de/fhir/igs/Specimen/43b3b82f-656f-3e3d-a510-0109771c9e97"/>
+          <resource>
+            <Specimen>
+              <id value="43b3b82f-656f-3e3d-a510-0109771c9e97"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/igs/StructureDefinition/SpecimenSequence"/>
+              </meta>
+              <status value="available"/>
+              <type>
+                <coding>
+                  <system value="http://snomed.info/sct"/>
+                  <code value="258604001"/>
+                  <display value="Upper respiratory specimen (specimen)"/>
+                </coding>
+              </type>
+              <subject>
+                <reference value="Patient/3661f735-d3db-3c22-909d-3a16a7334c1d"/>
+              </subject>
+              <receivedTime value="2022-12-29T15:40:00.000+01:00"/>
+              <collection>
+                <collector>
+                  <reference value="PractitionerRole/d1b92d45-3811-3064-bad7-b3336e70e08c"/>
+                </collector>
+                <collectedDateTime value="2022-12-29T09:50:00.000+01:00"/>
+              </collection>
+              <processing>
+                <description value="ARTICv4"/>
+                <procedure>
+                  <coding>
+                    <system value="https://demis.rki.de/fhir/igs/CodeSystem/sequencingStrategy"/>
+                    <code value="amplicon"/>
+                  </coding>
+                </procedure>
+                <timeDateTime value="2023-01-13T10:40:00.000+01:00"/>
+              </processing>
+            </Specimen>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl value="https://demis.rki.de/fhir/igs/Device/b075aba8-edcb-38f7-973a-6ba64b240a3e"/>
+          <resource>
+            <Device>
+              <id value="b075aba8-edcb-38f7-973a-6ba64b240a3e"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/igs/StructureDefinition/SequencingDevice"/>
+              </meta>
+              <deviceName>
+                <name value="GridION"/>
+                <type value="model-name"/>
+              </deviceName>
+              <type>
+                <coding>
+                  <system value="https://demis.rki.de/fhir/igs/CodeSystem/sequencingPlatform"/>
+                  <code value="oxford_nanopore"/>
+                  <display
+                    value="Oxford Nanopore platform type. nanopore-based electronic single molecule analysis."/>
+                </coding>
+              </type>
+            </Device>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/MolecularSequence/26038f18-8c2d-3ad7-90e6-f52cfd779262"/>
+          <resource>
+            <MolecularSequence>
+              <id value="26038f18-8c2d-3ad7-90e6-f52cfd779262"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/igs/StructureDefinition/Sequence"/>
+              </meta>
+              <extension url="https://demis.rki.de/fhir/igs/StructureDefinition/SequenceAuthor">
+                <valueString
+                  value="Ralf D&#252;rrwald, Stephan Fuchs, Stefan Kroeger, Marianne Wedde, Oliver Drechsel, Aleksandar Radonic, Rene Kmiecinski, Thorsten Wolff"/>
+              </extension>
+              <extension url="https://demis.rki.de/fhir/igs/StructureDefinition/SequencingReason">
+                <valueCoding>
+                  <system value="http://snomed.info/sct"/>
+                  <code value="255226008"/>
+                  <display value="Random (qualifier value)"/>
+                </valueCoding>
+              </extension>
+              <extension
+                url="https://demis.rki.de/fhir/igs/StructureDefinition/SequenceDocumentReference">
+                <valueReference>
+                  <reference
+                    value="https://ingress.local/surveillance/notification-sequence/fhir/DocumentReference/ecd3f1f0-b6b6-46e0-b721-2d9869ab8195"/>
+                  <type value="DocumentReference"/>
+                </valueReference>
+              </extension>
+              <extension
+                      url="https://demis.rki.de/fhir/igs/StructureDefinition/SequenceDocumentReference">
+                <valueReference>
+                  <reference
+                          value="https://ingress.local/surveillance/notification-sequence/fhir/DocumentReference/fde4g2g1-b6b6-46e0-b721-2d9869ab8195"/>
+                  <type value="DocumentReference"/>
+                </valueReference>
+              </extension>
+              <identifier>
+                <value value="A384"/> <!-- sequenceIdentifier -->
+              </identifier>
+              <type value="dna"/>
+              <coordinateSystem value="0"/>
+              <specimen>
+                <reference value="Specimen/43b3b82f-656f-3e3d-a510-0109771c9e97"/>
+              </specimen>
+              <device>
+                <reference value="Device/b075aba8-edcb-38f7-973a-6ba64b240a3e"/>
+              </device>
+              <performer>
+                <reference value="Organization/227a66a4-a2fe-34b9-ad24-55981d0d1d82"/>
+              </performer>
+              <repository>
+                <extension url="https://demis.rki.de/fhir/igs/StructureDefinition/SequenceUploadDate">
+                  <valueDateTime value="2023-02-10"/>
+                </extension>
+                <extension
+                  url="https://demis.rki.de/fhir/igs/StructureDefinition/SequenceUploadSubmitter">
+                  <valueString value="O Drechsel"/>
+                </extension>
+                <extension url="https://demis.rki.de/fhir/igs/StructureDefinition/SequenceUploadStatus">
+                  <valueCoding>
+                    <system value="http://snomed.info/sct"/>
+                    <code value="385645004"/>
+                  </valueCoding>
+                </extension>
+                <type value="other"/>
+                <name value="gisaid"/>
+                <datasetId value="EPI_ISL_16883504"/>
+              </repository>
+            </MolecularSequence>
+          </resource>
+        </entry>
+        <entry>
+          <fullUrl
+            value="https://demis.rki.de/fhir/igs/Organization/227a66a4-a2fe-34b9-ad24-55981d0d1d82"/>
+          <resource>
+            <Organization>
+              <id value="227a66a4-a2fe-34b9-ad24-55981d0d1d82"/>
+              <meta>
+                <profile value="https://demis.rki.de/fhir/StructureDefinition/NotifierFacility"/>
+              </meta>
+              <identifier>
+                <system value="https://demis.rki.de/fhir/NamingSystem/DemisLaboratoryId"/>
+                <value value="10285"/>
+              </identifier>
+              <type>
+                <coding>
+                  <system value="https://demis.rki.de/fhir/CodeSystem/organizationType"/>
+                  <code value="refLab"/>
+                  <display value="Einrichtung der Spezialdiagnostik"/>
+                </coding>
+              </type>
+              <name value="Nationales Referenzzentrum f&#252;r Influenza, FG17, RKI"/>
+              <telecom>
+                <system value="email"/>
+                <value value="NRZ-Influenza@rki.de"/>
+                <use value="work"/>
+              </telecom>
+              <address>
+                <line value="Seestr. 10"/>
+                <city value="Berlin"/>
+                <postalCode value="13353"/>
+                <country value="20422"/>
+              </address>
+            </Organization>
+          </resource>
+        </entry>
+      </Bundle>
+    </resource>
+  </parameter>
+</Parameters>

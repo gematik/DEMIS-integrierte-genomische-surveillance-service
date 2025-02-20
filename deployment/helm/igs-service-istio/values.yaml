@@ -1,0 +1,31 @@
+fullName: igs-service
+service:
+  type: ClusterIP
+  ports:
+    http: 8080
+istio:
+  virtualService:
+    gateways:
+      - demis-gateway
+    http:
+      match:
+        - uri:
+            prefix: /surveillance/notification-sequence/
+      rewrite:
+        uri: /
+      timeout: 30s
+      retries:
+        enable: false
+    #        attempts: 3
+    #        perTryTimeout: 5s
+        retryOn: null
+    hosts:
+      - ingress.local
+  subsets:
+    main:
+      version: 1.0.0
+      weight: "100"
+# activate Traffic mirroring, also called shadowing with the following lines
+#      mirror:
+#        version: 1.1.0
+#        mirrorPercentage: 0

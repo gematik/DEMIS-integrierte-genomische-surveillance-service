@@ -1,0 +1,7 @@
+fasta:
+  configs:
+    - name: "asdf"
+      longest: 40
+      shortest: 20
+      percentageN: 0.5
+
