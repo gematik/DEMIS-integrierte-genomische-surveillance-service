@@ -1,21 +1,3 @@
-/*
- * Copyright [2024], gematik GmbH
- *
- * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
- * European Commission – subsequent versions of the EUPL (the "Licence").
- * You may not use this work except in compliance with the Licence.
- *
- * You find a copy of the Licence in the "Licence" file or at
- * https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the Licence is distributed on an "AS IS" basis,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
- * In case of changes by gematik find details in the "Readme" file.
- *
- * See the Licence for the specific language governing permissions and limitations under the Licence.
- */
-
 package de.gematik.demis.igs.service.service;
 
 /*-
@@ -37,6 +19,10 @@ package de.gematik.demis.igs.service.service;
  * In case of changes by gematik find details in the "Readme" file.
  *
  * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
 
@@ -54,6 +40,7 @@ import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALI
 import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALIDATION_NOT_INITIATED;
 import static de.gematik.demis.igs.service.utils.ErrorMessages.INTERNAL_SERVER_ERROR_MESSAGE;
 import static de.gematik.demis.igs.service.utils.ErrorMessages.INVALID_COMPRESSED_FILE_ERROR_MSG;
+import static de.gematik.demis.igs.service.utils.JwtUtils.hasRole;
 import static java.io.InputStream.nullInputStream;
 import static java.lang.String.format;
 import static java.time.Duration.ofSeconds;
@@ -93,6 +80,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class DocumentReferenceService {
 
+  public static final String FASTA_ONLY_ROLE = "igs-sequence-data-sender-fasta-only";
   private final SimpleStorageService storageService;
   private final SequenceValidatorService sequenceValidatorService;
   private final ProxyInputStreamService proxy;
@@ -179,7 +167,7 @@ public class DocumentReferenceService {
    * @param documentId the id of the existing document
    */
   @Async
-  public void validateBinary(String documentId) {
+  public void validateBinary(String documentId, String authorization) {
     validationTracker.init(documentId);
     InputStream stream = storageService.getBlob(documentId);
     Map<String, String> metaData = storageService.getMetadata(documentId);
@@ -198,7 +186,8 @@ public class DocumentReferenceService {
                 documentId,
                 validationTracker));
     try (decompressed) {
-      sequenceValidatorService.validateSequence(decompressed, documentId, validationTracker);
+      sequenceValidatorService.validateSequence(
+          decompressed, documentId, validationTracker, hasRole(authorization, FASTA_ONLY_ROLE));
     } catch (Exception ex) {
       handleException(documentId, ex);
     } finally {
@@ -234,6 +223,21 @@ public class DocumentReferenceService {
     return result.get();
   }
 
+  /** Informs the S3 that a multipart upload has been completed. */
+  public void finishUpload(String documentId, MultipartUploadComplete multipartUploadComplete) {
+    storageService.checkIfDocumentExists(documentId);
+    String uploadId = multipartUploadComplete.uploadId();
+    if (uploadId == null || uploadId.isEmpty()) {
+      throw new IgsServiceException(MULTIPART_UPLOAD_COMPLETE_ERROR, "uploadId cannot be empty.");
+    }
+    List<CompletedChunk> completedChunks = multipartUploadComplete.completedChunks();
+    if (completedChunks == null || completedChunks.isEmpty()) {
+      throw new IgsServiceException(
+          MULTIPART_UPLOAD_COMPLETE_ERROR, "completedChunks cannot be empty.");
+    }
+    storageService.informUploadComplete(documentId, uploadId, completedChunks);
+  }
+
   private HashMap<String, String> getAttachmentMetadata(DocumentReference documentReference) {
     List<DocumentReferenceContentComponent> documentReferenceContent =
         documentReference.getContent();
@@ -261,20 +265,5 @@ public class DocumentReferenceService {
           documentId, VALIDATION_FAILED, INTERNAL_SERVER_ERROR_MESSAGE);
     }
     throw new IgsServiceException(INTERNAL_SERVER_ERROR, ex.getMessage(), ex);
-  }
-
-  /** Informs the S3 that a multipart upload has been completed. */
-  public void finishUpload(String documentId, MultipartUploadComplete multipartUploadComplete) {
-    storageService.checkIfDocumentExists(documentId);
-    String uploadId = multipartUploadComplete.uploadId();
-    if (uploadId == null || uploadId.isEmpty()) {
-      throw new IgsServiceException(MULTIPART_UPLOAD_COMPLETE_ERROR, "uploadId cannot be empty.");
-    }
-    List<CompletedChunk> completedChunks = multipartUploadComplete.completedChunks();
-    if (completedChunks == null || completedChunks.isEmpty()) {
-      throw new IgsServiceException(
-          MULTIPART_UPLOAD_COMPLETE_ERROR, "completedChunks cannot be empty.");
-    }
-    storageService.informUploadComplete(documentId, uploadId, completedChunks);
   }
 }

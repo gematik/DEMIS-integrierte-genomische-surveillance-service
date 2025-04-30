@@ -15,9 +15,8 @@ istio:
         uri: /
       timeout: 30s
       retries:
-        enable: false
-    #        attempts: 3
-    #        perTryTimeout: 5s
+        enable: true
+        attempts: 0
         retryOn: null
     hosts:
       - ingress.local

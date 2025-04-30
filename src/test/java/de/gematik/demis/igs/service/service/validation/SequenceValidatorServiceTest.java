@@ -1,21 +1,3 @@
-/*
- * Copyright [2024], gematik GmbH
- *
- * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
- * European Commission – subsequent versions of the EUPL (the "Licence").
- * You may not use this work except in compliance with the Licence.
- *
- * You find a copy of the Licence in the "Licence" file or at
- * https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the Licence is distributed on an "AS IS" basis,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
- * In case of changes by gematik find details in the "Readme" file.
- *
- * See the Licence for the specific language governing permissions and limitations under the Licence.
- */
-
 package de.gematik.demis.igs.service.service.validation;
 
 /*-
@@ -37,6 +19,10 @@ package de.gematik.demis.igs.service.service.validation;
  * In case of changes by gematik find details in the "Readme" file.
  *
  * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
 
@@ -44,6 +30,7 @@ import static de.gematik.demis.igs.service.service.validation.FastAValidator.DOU
 import static de.gematik.demis.igs.service.service.validation.FastAValidator.INVALID_CHAR_ERROR_MSG;
 import static de.gematik.demis.igs.service.service.validation.FastAValidator.LAST_LINE_HEADER_ERROR_MSG;
 import static de.gematik.demis.igs.service.service.validation.FastQValidator.NO_MULTIPLE_OF_4_MSG;
+import static de.gematik.demis.igs.service.service.validation.SequenceValidatorService.ERROR_MESSAGE_FASTQ_SEND_BY_FASTA_USER;
 import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALID;
 import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALIDATING;
 import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALIDATION_FAILED;
@@ -64,6 +51,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
 import lombok.SneakyThrows;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -80,11 +68,10 @@ class SequenceValidatorServiceTest {
 
   public static final String EXAMPLE_ID = "ExampleId";
   private final BaseUtil testUtils = new BaseUtil();
+  private final SequenceValidatorService underTest = new SequenceValidatorService();
   @Mock ValidationTracker tracker;
   @Captor ArgumentCaptor<ValidationStatus> statusCaptor;
   @Captor ArgumentCaptor<String> msgCaptor;
-
-  private final SequenceValidatorService underTest = new SequenceValidatorService();
 
   static Stream<Arguments> shouldCallTrackerAccordinglyForValidationError() {
     return Stream.of(
@@ -128,7 +115,7 @@ class SequenceValidatorServiceTest {
   @MethodSource
   void shouldCallTrackerAccordinglyForValidationError(
       String testcaseName, InputStream doc, String msg) throws IOException {
-    underTest.validateSequence(doc, EXAMPLE_ID, tracker);
+    underTest.validateSequence(doc, EXAMPLE_ID, tracker, false);
     verify(tracker, times(1)).updateValidationStatus(eq(EXAMPLE_ID), statusCaptor.capture());
     verify(tracker, times(1))
         .updateValidationStatus(eq(EXAMPLE_ID), statusCaptor.capture(), msgCaptor.capture());
@@ -140,8 +127,19 @@ class SequenceValidatorServiceTest {
   @ParameterizedTest
   @CsvSource({PATH_TO_FASTA, PATH_TO_FASTQ})
   void shouldCallTrackerAccordinglyOnSuccess(String path) {
-    underTest.validateSequence(testUtils.readFileToInputStream(path), EXAMPLE_ID, tracker);
+    underTest.validateSequence(testUtils.readFileToInputStream(path), EXAMPLE_ID, tracker, false);
     verify(tracker, times(2)).updateValidationStatus(eq(EXAMPLE_ID), statusCaptor.capture());
     assertThat(statusCaptor.getAllValues()).containsExactly(VALIDATING, VALID);
+  }
+
+  @Test
+  @SneakyThrows
+  void shouldUpdateMetadataCorrectIfFastATriesToValidateFastQ() {
+    InputStream file = testUtils.readFileToInputStream(PATH_TO_FASTQ);
+    underTest.validateSequence(file, EXAMPLE_ID, tracker, true);
+    verify(tracker, times(1))
+        .updateValidationStatus(
+            eq(EXAMPLE_ID), statusCaptor.capture(), eq(ERROR_MESSAGE_FASTQ_SEND_BY_FASTA_USER));
+    assertThat(statusCaptor.getAllValues()).containsExactly(VALIDATION_FAILED);
   }
 }
