@@ -19,9 +19,14 @@ package de.gematik.demis.igs.service.api;
  * In case of changes by gematik find details in the "Readme" file.
  *
  * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
 
+import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.ResponseEntity.noContent;
 import static org.springframework.http.ResponseEntity.ok;
@@ -37,6 +42,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -68,9 +74,10 @@ public class S3Controller {
 
   @PostMapping(path = S3_UPLOAD_VALIDATE)
   public ResponseEntity<Void> initiateValidation(
-      @PathVariable(name = DOCUMENT_ID_PATH_VARIABLE) String documentId) {
+      @PathVariable(name = DOCUMENT_ID_PATH_VARIABLE) String documentId,
+      @RequestHeader(value = AUTHORIZATION) String authorization) {
     documentReferenceService.prepareValidation(documentId);
-    documentReferenceService.validateBinary(documentId);
+    documentReferenceService.validateBinary(documentId, authorization);
     return noContent().build();
   }
 

@@ -19,6 +19,10 @@ package de.gematik.demis.igs.service.api;
  * In case of changes by gematik find details in the "Readme" file.
  *
  * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
 
@@ -34,8 +38,10 @@ import static de.gematik.demis.igs.service.utils.Constants.UPLOAD_STATUS_DONE;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_DESCRIPTION;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
 import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALID;
+import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALIDATION_FAILED;
 import static de.gematik.demis.igs.service.utils.Constants.ValidationStatus.VALIDATION_NOT_INITIATED;
 import static de.gematik.demis.igs.service.utils.ErrorMessages.FILE_SIZE_TO_LARGE_ERROR_MSG;
+import static de.gematik.demis.igs.service.utils.ErrorMessages.HASH_ERROR_MSG;
 import static de.gematik.demis.igs.service.utils.ErrorMessages.INVALID_COMPRESSED_FILE_ERROR_MSG;
 import static de.gematik.demis.igs.service.utils.ErrorMessages.INVALID_DOCUMENT_TYPE_ERROR_MSG;
 import static java.lang.String.format;
@@ -63,6 +69,7 @@ import static util.BaseUtil.PATH_TO_FASTQ;
 import static util.BaseUtil.PATH_TO_FASTQ_GZIP;
 import static util.BaseUtil.PATH_TO_FASTQ_INVALID;
 import static util.BaseUtil.PATH_TO_GZIP_INVALID;
+import static util.BaseUtil.TOKEN_NRZ;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.gematik.demis.igs.service.api.model.CompletedChunk;
@@ -102,6 +109,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.junit.jupiter.Container;
@@ -250,17 +258,14 @@ public class S3ControllerIT {
               "Invalid gzip",
               PATH_TO_GZIP_INVALID,
               PATH_TO_GZIP_INVALID,
-              INVALID_COMPRESSED_FILE_ERROR_MSG));
-      // TODO Wird im Rahmen von DEMIS-1359 wieder in den Testumfang aufgenommen
-      // Arguments.of("Invalid hash", PATH_TO_FASTA, PATH_TO_FASTA_GZIP, HASH_ERROR_MSG));
+              INVALID_COMPRESSED_FILE_ERROR_MSG),
+          Arguments.of("Invalid hash", PATH_TO_FASTA, PATH_TO_FASTA_GZIP, HASH_ERROR_MSG));
     }
 
     @Test
     @SneakyThrows
     void shouldReturn404IfDocumentIdNotExisting() {
-      mockMvc
-          .perform(post(S3_UPLOAD_VALIDATE.replace("{documentId}", NOT_EXISTING_DOCUMENT_ID)))
-          .andExpect(status().isNotFound());
+      startValidation(NOT_EXISTING_DOCUMENT_ID).andExpect(status().isNotFound());
     }
 
     @SneakyThrows
@@ -277,9 +282,7 @@ public class S3ControllerIT {
               HASH_METADATA_NAME,
               testUtil.calcHashOnFile(calcHashPath)),
           testUtil.readFileToInputStream(path));
-      mockMvc
-          .perform(post(S3_UPLOAD_VALIDATE.replace("{documentId}", documentId)))
-          .andExpect(status().isNoContent());
+      startValidation(documentId).andExpect(status().isNoContent());
       await()
           .atMost(ofSeconds(120))
           .pollInterval(ofSeconds(1))
@@ -313,12 +316,17 @@ public class S3ControllerIT {
           Map.of(
               UPLOAD_STATUS, UPLOAD_STATUS_DONE, HASH_METADATA_NAME, testUtil.calcHashOnFile(path)),
           testUtil.readFileToInputStream(path));
-      mockMvc
-          .perform(post(S3_UPLOAD_VALIDATE.replace("{documentId}", documentId)))
-          .andExpect(status().isNoContent());
+      startValidation(documentId).andExpect(status().isNoContent());
       await()
           .pollInterval(500, TimeUnit.MILLISECONDS)
           .atMost(1, TimeUnit.MINUTES)
+          .failFast(
+              "Wrong final status",
+              () ->
+                  storageService
+                      .getMetadata(documentId)
+                      .get(VALIDATION_STATUS)
+                      .equals(VALIDATION_FAILED.name()))
           .until(
               () ->
                   storageService
@@ -335,12 +343,17 @@ public class S3ControllerIT {
           documentId,
           Map.of(HASH_METADATA_NAME, testUtil.calcHashOnFile(PATH_TO_FASTA)),
           testUtil.readFileToInputStream(PATH_TO_FASTA));
-      mockMvc
-          .perform(post(S3_UPLOAD_VALIDATE.replace("{documentId}", documentId)))
+      startValidation(documentId)
           .andExpect(status().isBadRequest())
           .andExpect(
               jsonPath("$.detail")
                   .value("Der Upload des angefragen Dokuments ist noch nicht abgeschlossen."));
+    }
+
+    private ResultActions startValidation(String documentId) throws Exception {
+      return mockMvc.perform(
+          post(S3_UPLOAD_VALIDATE.replace("{documentId}", documentId))
+              .header("Authorization", TOKEN_NRZ));
     }
   }
 
@@ -369,6 +382,78 @@ public class S3ControllerIT {
                   .contentType(APPLICATION_JSON)
                   .content(requestBody))
           .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @SneakyThrows
+    void shouldReturnBadRequestOnNoUploadId() {
+      storageService.putBlob(DOCUMENT_ID, Map.of(), InputStream.nullInputStream());
+      MultipartUploadComplete multipartUploadComplete =
+          new MultipartUploadComplete("", determineCompletedChunks());
+      ObjectMapper objectMapper = new ObjectMapper();
+      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
+      mockMvc
+          .perform(
+              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", DOCUMENT_ID))
+                  .contentType(APPLICATION_JSON)
+                  .content(requestBody))
+          .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @SneakyThrows
+    void shouldReturnBadRequestOnNoCompletedChunks() {
+      storageService.putBlob(DOCUMENT_ID, Map.of(), InputStream.nullInputStream());
+      MultipartUploadComplete multipartUploadComplete =
+          new MultipartUploadComplete("uploadId", null);
+      ObjectMapper objectMapper = new ObjectMapper();
+      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
+      mockMvc
+          .perform(
+              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", DOCUMENT_ID))
+                  .contentType(APPLICATION_JSON)
+                  .content(requestBody))
+          .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @SneakyThrows
+    void shouldReturnBadRequestOnInvalidDocumentId() {
+      File sampleData = new File(PATH_TO_SAMPLE_DATA);
+      String documentId = createDocumentReference();
+      S3Info s3Info = createS3Info(documentId, (int) sampleData.length());
+      List<CompletedChunk> completedChunks = performMultipartUpload(s3Info, PATH_TO_SAMPLE_DATA);
+      MultipartUploadComplete multipartUploadComplete =
+          new MultipartUploadComplete(s3Info.uploadId(), completedChunks);
+      ObjectMapper objectMapper = new ObjectMapper();
+      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
+
+      mockMvc
+          .perform(
+              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", "invalidId"))
+                  .contentType(APPLICATION_JSON)
+                  .content(requestBody))
+          .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @SneakyThrows
+    void shouldReturnReturnInternalServerErrorOnFailure() {
+      File sampleData = new File(PATH_TO_SAMPLE_DATA);
+      String documentId = createDocumentReference();
+      S3Info s3Info = createS3Info(documentId, (int) sampleData.length());
+      performMultipartUpload(s3Info, PATH_TO_SAMPLE_DATA);
+      MultipartUploadComplete multipartUploadComplete =
+          new MultipartUploadComplete(s3Info.uploadId(), determineCompletedChunks());
+      ObjectMapper objectMapper = new ObjectMapper();
+      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
+
+      mockMvc
+          .perform(
+              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", documentId))
+                  .contentType(APPLICATION_JSON)
+                  .content(requestBody))
+          .andExpect(status().isInternalServerError());
     }
 
     @SneakyThrows
@@ -452,78 +537,6 @@ public class S3ControllerIT {
           new CompletedChunk(1, "eTag1"),
           new CompletedChunk(2, "eTag2"),
           new CompletedChunk(3, "eTag3"));
-    }
-
-    @Test
-    @SneakyThrows
-    void shouldReturnBadRequestOnNoUploadId() {
-      storageService.putBlob(DOCUMENT_ID, Map.of(), InputStream.nullInputStream());
-      MultipartUploadComplete multipartUploadComplete =
-          new MultipartUploadComplete("", determineCompletedChunks());
-      ObjectMapper objectMapper = new ObjectMapper();
-      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
-      mockMvc
-          .perform(
-              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", DOCUMENT_ID))
-                  .contentType(APPLICATION_JSON)
-                  .content(requestBody))
-          .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @SneakyThrows
-    void shouldReturnBadRequestOnNoCompletedChunks() {
-      storageService.putBlob(DOCUMENT_ID, Map.of(), InputStream.nullInputStream());
-      MultipartUploadComplete multipartUploadComplete =
-          new MultipartUploadComplete("uploadId", null);
-      ObjectMapper objectMapper = new ObjectMapper();
-      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
-      mockMvc
-          .perform(
-              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", DOCUMENT_ID))
-                  .contentType(APPLICATION_JSON)
-                  .content(requestBody))
-          .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    @SneakyThrows
-    void shouldReturnBadRequestOnInvalidDocumentId() {
-      File sampleData = new File(PATH_TO_SAMPLE_DATA);
-      String documentId = createDocumentReference();
-      S3Info s3Info = createS3Info(documentId, (int) sampleData.length());
-      List<CompletedChunk> completedChunks = performMultipartUpload(s3Info, PATH_TO_SAMPLE_DATA);
-      MultipartUploadComplete multipartUploadComplete =
-          new MultipartUploadComplete(s3Info.uploadId(), completedChunks);
-      ObjectMapper objectMapper = new ObjectMapper();
-      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
-
-      mockMvc
-          .perform(
-              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", "invalidId"))
-                  .contentType(APPLICATION_JSON)
-                  .content(requestBody))
-          .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @SneakyThrows
-    void shouldReturnReturnInternalServerErrorOnFailure() {
-      File sampleData = new File(PATH_TO_SAMPLE_DATA);
-      String documentId = createDocumentReference();
-      S3Info s3Info = createS3Info(documentId, (int) sampleData.length());
-      performMultipartUpload(s3Info, PATH_TO_SAMPLE_DATA);
-      MultipartUploadComplete multipartUploadComplete =
-          new MultipartUploadComplete(s3Info.uploadId(), determineCompletedChunks());
-      ObjectMapper objectMapper = new ObjectMapper();
-      String requestBody = objectMapper.writeValueAsString(multipartUploadComplete);
-
-      mockMvc
-          .perform(
-              post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", documentId))
-                  .contentType(APPLICATION_JSON)
-                  .content(requestBody))
-          .andExpect(status().isInternalServerError());
     }
   }
 }

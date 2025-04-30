@@ -19,15 +19,23 @@ package de.gematik.demis.igs.service.service.storage;
  * In case of changes by gematik find details in the "Readme" file.
  *
  * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
 
+import static de.gematik.demis.igs.service.exception.ErrorCode.INTERNAL_SERVER_ERROR;
+
+import de.gematik.demis.service.base.error.ServiceException;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.UUID;
 import javax.net.ssl.TrustManager;
@@ -47,17 +55,18 @@ public class S3TrustManagersProvider implements TlsTrustManagersProvider {
   public static final String KEYSTORE_FORMAT = "PKCS12";
   public static final String CERTIFICATE_FORMAT = "X.509";
   public static final String CERTIFICATE_ALIAS = "storate-certificate";
+  public static final String END_CERTIFICATE = "END CERTIFICATE";
   private final SimpleStorageServiceConfiguration s3configuration;
 
   @Override
   public TrustManager[] trustManagers() {
-    TrustManager[] trustManagers = new TrustManager[] {};
+    TrustManager[] trustManagers;
     try {
       // initialize an empty truststore
       KeyStore truststore = KeyStore.getInstance(KEYSTORE_FORMAT);
       truststore.load(null, UUID.randomUUID().toString().toCharArray());
 
-      addCertificatesToTruststore(truststore);
+      loadTrustedCertsToTruststore(truststore);
 
       TrustManagerFactory trustManagerFactory =
           TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -66,29 +75,45 @@ public class S3TrustManagersProvider implements TlsTrustManagersProvider {
       trustManagers = trustManagerFactory.getTrustManagers();
     } catch (Exception exception) {
       log.error(exception.getMessage(), exception);
+      throw new ServiceException(
+          INTERNAL_SERVER_ERROR.getCode(), "Error while creating truststore", exception);
     }
     return trustManagers;
   }
 
-  private void addCertificatesToTruststore(KeyStore truststore)
-      throws CertificateException, KeyStoreException {
-    addCertificateToTruststore(
-        decodeCertificate(s3configuration.getStorageTlsCertificate()), truststore);
-    addCertificateToTruststore(
-        decodeCertificate(s3configuration.getStorageTlsCertificateInternal()), truststore);
+  private void loadTrustedCertsToTruststore(KeyStore truststore) throws CertificateException {
+    addCertificatesToTruststore(s3configuration.getStorageTlsCertificate(), truststore);
+    addCertificatesToTruststore(s3configuration.getStorageTlsCertificateInternal(), truststore);
   }
 
-  private byte[] decodeCertificate(String certificateBase64) {
-    return Base64.getDecoder().decode(certificateBase64);
-  }
-
-  private void addCertificateToTruststore(byte[] certificate, KeyStore truststore)
-      throws CertificateException, KeyStoreException {
-    CertificateFactory certificateFactory = CertificateFactory.getInstance(CERTIFICATE_FORMAT);
-    X509Certificate x509Certificate =
-        (X509Certificate)
-            certificateFactory.generateCertificate(new ByteArrayInputStream(certificate));
-
-    truststore.setCertificateEntry(CERTIFICATE_ALIAS, x509Certificate);
+  private void addCertificatesToTruststore(String base64KeyChain, KeyStore truststore)
+      throws CertificateException {
+    String certFile = new String(Base64.getDecoder().decode(base64KeyChain.replaceAll("\\s", "")));
+    int occurrences = certFile.split("\\b" + END_CERTIFICATE + "\\b", -1).length - 1;
+    log.info("Adding {} certificates to truststore", occurrences);
+    int errors = 0;
+    try (InputStream is = new ByteArrayInputStream(certFile.getBytes())) {
+      CertificateFactory cf = CertificateFactory.getInstance(CERTIFICATE_FORMAT);
+      int certIndex = 1;
+      while (is.available() > 0) {
+        try {
+          Certificate cert = cf.generateCertificate(is);
+          String alias = CERTIFICATE_ALIAS + certIndex++;
+          truststore.setCertificateEntry(alias, cert);
+        } catch (Exception ex) {
+          ++errors;
+          log.warn("Error while adding certificate to truststore: {}", ex.getMessage());
+        }
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    if (errors >= occurrences) {
+      log.error("Could not load any certificate to truststore");
+      throw new ServiceException(
+          INTERNAL_SERVER_ERROR.getCode(), "Error while creating truststore");
+    } else if (errors > 0) {
+      log.warn("Could not load {} certificates to truststore", errors);
+    }
   }
 }

@@ -1,0 +1,4 @@
+fasta:
+  validation:
+    pathogen:
+      asdf: "40,20,0.5"

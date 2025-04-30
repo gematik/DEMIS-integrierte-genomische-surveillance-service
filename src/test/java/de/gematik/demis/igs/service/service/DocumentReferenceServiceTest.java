@@ -1,21 +1,3 @@
-/*
- * Copyright [2024], gematik GmbH
- *
- * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
- * European Commission – subsequent versions of the EUPL (the "Licence").
- * You may not use this work except in compliance with the Licence.
- *
- * You find a copy of the Licence in the "Licence" file or at
- * https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the Licence is distributed on an "AS IS" basis,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
- * In case of changes by gematik find details in the "Readme" file.
- *
- * See the Licence for the specific language governing permissions and limitations under the Licence.
- */
-
 package de.gematik.demis.igs.service.service;
 
 /*-
@@ -37,6 +19,10 @@ package de.gematik.demis.igs.service.service;
  * In case of changes by gematik find details in the "Readme" file.
  *
  * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
 
@@ -56,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -69,6 +56,8 @@ import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static util.BaseUtil.PATH_TO_FASTA_GZIP;
 import static util.BaseUtil.PATH_TO_FASTQ;
+import static util.BaseUtil.TOKEN_FAST_A;
+import static util.BaseUtil.TOKEN_NRZ;
 
 import de.gematik.demis.igs.service.api.model.ValidationInfo;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
@@ -248,9 +237,10 @@ class DocumentReferenceServiceTest {
   @Nested
   class CheckValidationTest {
 
-    @Test
     @SneakyThrows
-    void shouldCallServiceOnSuccess() {
+    @ParameterizedTest
+    @ValueSource(strings = {TOKEN_NRZ, TOKEN_FAST_A})
+    void shouldCallServiceOnSuccess(String token) {
       InputStream in1 = new ByteArrayInputStream("1".getBytes(StandardCharsets.UTF_8));
       InputStream in2 = new ByteArrayInputStream("2".getBytes(StandardCharsets.UTF_8));
       InputStream in3 = new ByteArrayInputStream("3".getBytes(StandardCharsets.UTF_8));
@@ -262,10 +252,12 @@ class DocumentReferenceServiceTest {
       when(proxy.run(eq(in1), any(HashValidatorFunction.class))).thenReturn(in2);
       when(proxy.run(eq(in2), any(GzipDecompressionFunction.class))).thenReturn(in3);
 
-      underTest.validateBinary(DOCUMENT_ID);
+      underTest.validateBinary(DOCUMENT_ID, token);
 
       assertAll(
-          () -> verify(sequenceValidatorService).validateSequence(in3, DOCUMENT_ID, tracker),
+          () ->
+              verify(sequenceValidatorService)
+                  .validateSequence(in3, DOCUMENT_ID, tracker, token.equals(TOKEN_FAST_A)),
           () -> verify(storageService, times(1)).getBlob(DOCUMENT_ID),
           () -> verify(storageService, times(1)).getMetadata(DOCUMENT_ID),
           () -> verify(storageService, times(1)).getFirstBytesOf(DOCUMENT_ID),
@@ -283,8 +275,9 @@ class DocumentReferenceServiceTest {
 
       doThrow(new IOException("Error"))
           .when(sequenceValidatorService)
-          .validateSequence(any(), any(), any());
-      assertThrows(IgsServiceException.class, () -> underTest.validateBinary(DOCUMENT_ID));
+          .validateSequence(any(), any(), any(), anyBoolean());
+      assertThrows(
+          IgsServiceException.class, () -> underTest.validateBinary(DOCUMENT_ID, TOKEN_NRZ));
 
       assertAll(
           () -> verify(storageService, times(1)).getBlob(DOCUMENT_ID),
@@ -302,8 +295,27 @@ class DocumentReferenceServiceTest {
 
       doThrow(new IOException("Error"))
           .when(sequenceValidatorService)
-          .validateSequence(any(), any(), any());
-      assertThrows(IgsServiceException.class, () -> underTest.validateBinary(DOCUMENT_ID));
+          .validateSequence(any(), any(), any(), anyBoolean());
+      assertThrows(
+          IgsServiceException.class, () -> underTest.validateBinary(DOCUMENT_ID, TOKEN_NRZ));
+
+      assertAll(
+          () -> verify(tracker, times(1)).init(DOCUMENT_ID),
+          () -> verify(tracker, times(1)).drop(DOCUMENT_ID));
+    }
+
+    @Test
+    @SneakyThrows
+    void shouldCallValidationServiceWithNoExtendedValidation() {
+      when(storageService.getBlob(DOCUMENT_ID))
+          .thenReturn(testUtil.readFileToInputStream(PATH_TO_FASTQ));
+      when(storageService.getFirstBytesOf(DOCUMENT_ID)).thenReturn(new Pair("1", "2"));
+
+      doThrow(new IOException("Error"))
+          .when(sequenceValidatorService)
+          .validateSequence(any(), any(), any(), anyBoolean());
+      assertThrows(
+          IgsServiceException.class, () -> underTest.validateBinary(DOCUMENT_ID, TOKEN_NRZ));
 
       assertAll(
           () -> verify(tracker, times(1)).init(DOCUMENT_ID),

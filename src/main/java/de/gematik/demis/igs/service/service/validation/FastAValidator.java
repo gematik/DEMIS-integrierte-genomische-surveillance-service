@@ -1,21 +1,3 @@
-/*
- * Copyright [2024], gematik GmbH
- *
- * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
- * European Commission – subsequent versions of the EUPL (the "Licence").
- * You may not use this work except in compliance with the Licence.
- *
- * You find a copy of the Licence in the "Licence" file or at
- * https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the Licence is distributed on an "AS IS" basis,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expressed or implied.
- * In case of changes by gematik find details in the "Readme" file.
- *
- * See the Licence for the specific language governing permissions and limitations under the Licence.
- */
-
 package de.gematik.demis.igs.service.service.validation;
 
 /*-
@@ -37,6 +19,10 @@ package de.gematik.demis.igs.service.service.validation;
  * In case of changes by gematik find details in the "Readme" file.
  *
  * See the Licence for the specific language governing permissions and limitations under the Licence.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
 
@@ -58,24 +44,28 @@ import lombok.RequiredArgsConstructor;
 public class FastAValidator implements SequenceValidator {
 
   public static final String LAST_LINE_HEADER_ERROR_MSG =
-      "Invalid sequence -> last line is header line";
+      "Invalide Sequenz -> Letzte Zeile darf keine Headerzeile sein";
   public static final String DOUBLE_HEADER_ERROR_MESSAGE =
-      "Invalid sequence -> double header line in fasta detected";
+      "Invalide Sequenz -> Doppelte Headerzeile gefunden";
   public static final String INVALID_CHAR_ERROR_MSG =
-      "Invalid sequence -> found invalid character in %s line Nr. %s";
+      "Invalide Sequenz -> Invalides Zeichen %s in Zeile %s gefunden";
   public static final String INVALID_FASTA_CONFIG_ERROR_MSG =
-      "Invalid sequence -> pathogen-code must be at least 4 characters long without whitespaces";
+      "Invalide Sequenz -> Pathogencode muss 4 Zeichen ohne Whitespace lang sein";
   public static final String INVALID_FASTA_LINE_WRONG_LENGTH_ERROR_MSG =
-      "Invalid sequence -> block above line %s: blocks of pathogen '%s' should have a length between %s and %s";
+      "Invalide Sequenz -> Block vor Zeile %s: Block eines Pathogens '%s' muss zwischen %s und %s Zeichen haben";
   public static final String INVALID_FASTA_TO_MANY_N =
-      "Invalid sequence -> block above line %s: blocks of pathogen '%s' should have a maximum of %s percent N";
-  public static final String PATOGEN_KEYWORD = "pathogen=";
+      "Invalide Sequenz -> Block vor Zeile %s: Block eines Pathogens '%s' darf nicht mehr als %s Prozent N enthalten";
+  public static final String MISSING_PATHOGEN_CODE_ERROR_MSG =
+      "Invalide Sequenz -> Block vor Zeile %s: Fehlender Pathogencode";
+  public static final String PATHOGEN_KEYWORD = "pathogen=";
   private final FastAValidationSpecifications fastAValidationSpecifications;
+  private final boolean isFastASender;
   private boolean disallowHeaderLine = false;
   private long lineNumber = 0;
   private FastAConfig currentFastAConfig;
   private BigInteger amountOfCharsInBlock = ZERO;
   private BigInteger amountNInBlock = ZERO;
+  private boolean isFirstHeader = true;
 
   @Override
   public void validate(String firstLine, BufferedReader bufferedReader) throws IOException {
@@ -96,6 +86,7 @@ public class FastAValidator implements SequenceValidator {
     if (line.startsWith(">")) {
       executeExtendedValidation();
       setCurrentFastAConfig(line);
+
       validateHeader(line);
     } else {
       validateSequenceLine(line);
@@ -104,6 +95,11 @@ public class FastAValidator implements SequenceValidator {
 
   private void executeExtendedValidation() {
     if (currentFastAConfig == null) {
+      if (isFastASender && !isFirstHeader) {
+        throw new IgsServiceException(
+            INVALID_DOCUMENT, MISSING_PATHOGEN_CODE_ERROR_MSG.formatted(lineNumber));
+      }
+      isFirstHeader = false;
       return;
     }
     checkLengthConstraints();
@@ -145,16 +141,16 @@ public class FastAValidator implements SequenceValidator {
   }
 
   private void setCurrentFastAConfig(String line) {
-    int index = line.toLowerCase().indexOf(PATOGEN_KEYWORD);
+    int index = line.toLowerCase().indexOf(PATHOGEN_KEYWORD);
     if (index == -1) {
       currentFastAConfig = null;
       return;
     }
-    if (index + PATOGEN_KEYWORD.length() + 4 > line.length()) {
+    if (index + PATHOGEN_KEYWORD.length() + 4 > line.length()) {
       throw new IgsServiceException(INVALID_DOCUMENT, INVALID_FASTA_CONFIG_ERROR_MSG);
     }
     String code =
-        line.substring(index + PATOGEN_KEYWORD.length(), index + PATOGEN_KEYWORD.length() + 4);
+        line.substring(index + PATHOGEN_KEYWORD.length(), index + PATHOGEN_KEYWORD.length() + 4);
     if (!code.matches("[a-zA-Z]{4}")) {
       throw new IgsServiceException(INVALID_DOCUMENT, INVALID_FASTA_CONFIG_ERROR_MSG);
     }

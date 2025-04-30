@@ -65,6 +65,7 @@ customEnvVars:
   S3_URL: "https://igs-storage.ingress.local"
   DEMIS_NETWORK_NOTIFICATION_CLEARING_API_ADDRESS: "http://notification-clearing-api.demis.svc.cluster.local"
   DEMIS_NETWORK_VALIDATION_SERVICE_ADDRESS: "http://validation-service.demis.svc.cluster.local"
+  DEMIS_NETWORK_CONTENT_ENRICHMENT_SERVICE_ADDRESS: "http://context-enrichment-service.demis.svc.cluster.local"
 
 # Define custom Container Entrypoint and Arguments (e.g. JVM Tuning)
 # If not given, the Entrypoint defined in Dockerfile will be used
@@ -137,11 +138,10 @@ service:
 # Default Resources
 resources:
   limits:
-    cpu: "1000m"
-    memory: "1Gi"
+    memory: "500Mi"
   requests:
-    cpu: "200m"
-    memory: "1Gi"
+    cpu: "1000m"
+    memory: "500Mi"
 
 autoscaling:
   enabled: false
