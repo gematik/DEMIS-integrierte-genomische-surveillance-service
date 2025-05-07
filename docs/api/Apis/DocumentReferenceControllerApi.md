@@ -31,8 +31,8 @@ No authorization required
 
 ### HTTP request headers
 
-- **Content-Type**: application/json, application/xml, application/json+fhir, application/fhir+json
-- **Accept**: application/json, application/xml, application/json+fhir, application/fhir+json
+- **Content-Type**: application/fhir+json, application/json, application/json+fhir, application/xml
+- **Accept**: application/fhir+json, application/json, application/json+fhir, application/xml
 
 <a name="getBinary"></a>
 # **getBinary**
