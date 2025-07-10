@@ -29,6 +29,7 @@ package de.gematik.demis.igs.service.service.storage;
 import static de.gematik.demis.igs.service.exception.ErrorCode.FILE_NOT_FOUND;
 import static de.gematik.demis.igs.service.exception.ErrorCode.INTERNAL_SERVER_ERROR;
 import static de.gematik.demis.igs.service.exception.ErrorCode.INVALID_FILE_SIZE;
+import static de.gematik.demis.igs.service.exception.ErrorCode.INVALID_UPLOAD;
 import static de.gematik.demis.igs.service.utils.Constants.UPLOAD_STATUS;
 import static de.gematik.demis.igs.service.utils.Constants.UPLOAD_STATUS_DONE;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_DESCRIPTION;
@@ -86,6 +87,7 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.LifecycleRule;
+import software.amazon.awssdk.services.s3.model.NoSuchUploadException;
 import software.amazon.awssdk.services.s3.model.PutBucketLifecycleConfigurationRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -118,33 +120,6 @@ public class S3StorageService implements SimpleStorageService {
         LIFECYCLE_RULE_ID_VALID,
         s3configuration.getValidatedBucket().getDeletionDeadlineInDays(),
         s3configuration.getValidatedBucket().getName());
-  }
-
-  private void createLifeCycleRule(String id, Integer days, String bucketName) {
-    LifecycleRule expirationRule =
-        LifecycleRule.builder()
-            .id(id)
-            .filter(ruleFilter -> ruleFilter.prefix("").build())
-            .status(ExpirationStatus.ENABLED)
-            .expiration(exp -> exp.days(days).build())
-            .build();
-
-    PutBucketLifecycleConfigurationRequest request =
-        PutBucketLifecycleConfigurationRequest.builder()
-            .bucket(bucketName)
-            .lifecycleConfiguration(config -> config.rules(List.of(expirationRule)))
-            .build();
-    try {
-      s3.putBucketLifecycleConfiguration(request);
-    } catch (Exception ex) {
-      log.error(
-          "Lifecycle rule could not be applied. RuleName: '{}' bucketName: '{}'",
-          id,
-          bucketName,
-          ex);
-      return;
-    }
-    log.info("Lifecycle configuration set to " + days + " days for bucket: " + bucketName);
   }
 
   @Override
@@ -287,32 +262,6 @@ public class S3StorageService implements SimpleStorageService {
     }
   }
 
-  private void moveFileToValidBucket(String documentId) {
-    try {
-      Map<String, String> metaData = getMetadata(documentId);
-      if (isNull(metaData.get(VALIDATION_STATUS))
-          || !metaData.get(VALIDATION_STATUS).equals(VALID.name())) {
-        log.error("Document {} is not valid, skipping transfer", documentId);
-        return;
-      }
-      ensureBucket(s3configuration.getValidatedBucket().getName());
-      CopyObjectRequest copyRequest =
-          CopyObjectRequest.builder()
-              .sourceBucket(s3configuration.getUploadBucket().getName())
-              .sourceKey(documentId)
-              .destinationBucket(s3configuration.getValidatedBucket().getName())
-              .destinationKey(documentId)
-              .metadata(metaData) // Preserve metadata
-              .metadataDirective(REPLACE)
-              .build();
-      s3.copyObject(copyRequest);
-      emptyFile(documentId);
-      log.debug("Document {} successfully transferred to valid bucket", documentId);
-    } catch (Exception ex) {
-      handleBucketError(ex);
-    }
-  }
-
   protected synchronized void updateMetaData(String documentId, List<Pair> newMetaData) {
     Map<String, String> metaData = new HashMap<>(getMetadata(documentId));
     for (Pair pair : newMetaData) {
@@ -371,6 +320,99 @@ public class S3StorageService implements SimpleStorageService {
     validationInfo.setStatus(metadata.get(VALIDATION_STATUS));
     validationInfo.setMessage(metadata.get(VALIDATION_DESCRIPTION));
     return validationInfo;
+  }
+
+  @Override
+  public void informUploadComplete(
+      String documentId, String uploadId, List<CompletedChunk> completedChunks) {
+    CompletedMultipartUpload completedMultipartUpload =
+        CompletedMultipartUpload.builder().parts(buildCompetedParts(completedChunks)).build();
+
+    CompleteMultipartUploadRequest completeMultipartUploadRequest =
+        CompleteMultipartUploadRequest.builder()
+            .bucket(s3configuration.getUploadBucket().getName())
+            .key(documentId)
+            .uploadId(uploadId)
+            .multipartUpload(completedMultipartUpload)
+            .build();
+    try {
+      s3.completeMultipartUpload(completeMultipartUploadRequest);
+    } catch (NoSuchUploadException e) {
+      throw new IgsServiceException(
+          INVALID_UPLOAD, "Upload with ID " + uploadId + " does not exist");
+    } catch (S3Exception e) {
+      throw new IgsServiceException(INVALID_UPLOAD, "E-Tag of the upload is invalid");
+    }
+    updateMetaData(documentId, List.of(pair(UPLOAD_STATUS, UPLOAD_STATUS_DONE)));
+  }
+
+  @Override
+  public InputStream getBlobFromValidBucket(String documentId) {
+    try {
+      checkIfDocumentExistsAndNotEmpty(documentId, s3configuration.getValidatedBucket().getName());
+      GetObjectRequest getObjectRequest =
+          GetObjectRequest.builder()
+              .bucket(s3configuration.getValidatedBucket().getName())
+              .key(documentId)
+              .build();
+      return s3.getObject(getObjectRequest);
+    } catch (Exception ex) {
+      handleBucketError(ex);
+    }
+    return null;
+  }
+
+  private void createLifeCycleRule(String id, Integer days, String bucketName) {
+    LifecycleRule expirationRule =
+        LifecycleRule.builder()
+            .id(id)
+            .filter(ruleFilter -> ruleFilter.prefix("").build())
+            .status(ExpirationStatus.ENABLED)
+            .expiration(exp -> exp.days(days).build())
+            .build();
+
+    PutBucketLifecycleConfigurationRequest request =
+        PutBucketLifecycleConfigurationRequest.builder()
+            .bucket(bucketName)
+            .lifecycleConfiguration(config -> config.rules(List.of(expirationRule)))
+            .build();
+    try {
+      s3.putBucketLifecycleConfiguration(request);
+    } catch (Exception ex) {
+      log.error(
+          "Lifecycle rule could not be applied. RuleName: '{}' bucketName: '{}'",
+          id,
+          bucketName,
+          ex);
+      return;
+    }
+    log.info("Lifecycle configuration set to " + days + " days for bucket: " + bucketName);
+  }
+
+  private void moveFileToValidBucket(String documentId) {
+    try {
+      Map<String, String> metaData = getMetadata(documentId);
+      if (isNull(metaData.get(VALIDATION_STATUS))
+          || !metaData.get(VALIDATION_STATUS).equals(VALID.name())) {
+        log.error("Document {} is not valid, skipping transfer", documentId);
+        return;
+      }
+      ensureBucket(s3configuration.getValidatedBucket().getName());
+      CopyObjectRequest copyRequest =
+          CopyObjectRequest.builder()
+              .sourceBucket(s3configuration.getUploadBucket().getName())
+              .sourceKey(documentId)
+              .destinationBucket(s3configuration.getValidatedBucket().getName())
+              .destinationKey(documentId)
+              .metadata(metaData) // Preserve metadata
+              .metadataDirective(REPLACE)
+              .build();
+      s3.copyObject(copyRequest);
+      emptyFile(documentId);
+      log.debug("Document {} successfully transferred to valid bucket", documentId);
+    } catch (Exception ex) {
+      handleBucketError(ex);
+    }
   }
 
   private void ensureBucket() {
@@ -443,40 +485,6 @@ public class S3StorageService implements SimpleStorageService {
     }
 
     return totalBytes;
-  }
-
-  @Override
-  public void informUploadComplete(
-      String documentId, String uploadId, List<CompletedChunk> completedChunks) {
-    CompletedMultipartUpload completedMultipartUpload =
-        CompletedMultipartUpload.builder().parts(buildCompetedParts(completedChunks)).build();
-
-    CompleteMultipartUploadRequest completeMultipartUploadRequest =
-        CompleteMultipartUploadRequest.builder()
-            .bucket(s3configuration.getUploadBucket().getName())
-            .key(documentId)
-            .uploadId(uploadId)
-            .multipartUpload(completedMultipartUpload)
-            .build();
-
-    s3.completeMultipartUpload(completeMultipartUploadRequest);
-    updateMetaData(documentId, List.of(pair(UPLOAD_STATUS, UPLOAD_STATUS_DONE)));
-  }
-
-  @Override
-  public InputStream getBlobFromValidBucket(String documentId) {
-    try {
-      checkIfDocumentExistsAndNotEmpty(documentId, s3configuration.getValidatedBucket().getName());
-      GetObjectRequest getObjectRequest =
-          GetObjectRequest.builder()
-              .bucket(s3configuration.getValidatedBucket().getName())
-              .key(documentId)
-              .build();
-      return s3.getObject(getObjectRequest);
-    } catch (Exception ex) {
-      handleBucketError(ex);
-    }
-    return null;
   }
 
   private List<CompletedPart> buildCompetedParts(List<CompletedChunk> completedChunks) {

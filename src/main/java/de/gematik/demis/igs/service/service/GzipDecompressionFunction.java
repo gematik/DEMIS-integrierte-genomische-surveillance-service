@@ -76,11 +76,10 @@ public class GzipDecompressionFunction implements BiFunction<InputStream, Output
     } catch (IOException e) {
       if (e.getMessage()
           .contentEquals("Gzip-compressed data is corrupt(uncompressed size mismatch)")) {
-        log.error("Error while decompressing GZIP stream", e);
+        log.info("Received invalid compressed file for documentId: {}", documentId);
         validationTracker.updateGzipStatus(
             documentId, VALIDATION_FAILED, INVALID_COMPRESSED_FILE_ERROR_MSG);
       } else {
-        log.error("Error while reading stream", e);
         validationTracker.updateGzipStatus(
             documentId, VALIDATION_FAILED, INTERNAL_SERVER_ERROR_MESSAGE);
       }

@@ -33,8 +33,8 @@ import static java.lang.String.format;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
 import de.gematik.demis.igs.service.service.contextenrichment.ContextEnrichmentService;
 import de.gematik.demis.igs.service.service.fhir.FhirBundleOperationService;
+import de.gematik.demis.igs.service.service.fhirstorage.FhirStorageService;
 import de.gematik.demis.igs.service.service.igs.IgsTransactionIdGeneratorService;
-import de.gematik.demis.igs.service.service.ncapi.NcapiService;
 import de.gematik.demis.igs.service.service.validation.NotificationValidatorService;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotNull;
@@ -52,7 +52,7 @@ import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
-/** Handles IGS Notification operations, i.e. Sequence ID generation, communication with NCAPI */
+/** Handles IGS Notification operations, i.e. Sequence ID generation, communication with FSW */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -64,7 +64,7 @@ public class NotificationService {
   private final NotificationValidatorService notificationValidatorService;
   private final FhirBundleOperationService fhirBundleOperationService;
   private final IgsTransactionIdGeneratorService igsTransactionIdGeneratorService;
-  private final NcapiService ncapiService;
+  private final FhirStorageService fhirStorageService;
   private final ContextEnrichmentService contextEnrichmentService;
   private Pattern pattern;
 
@@ -79,7 +79,7 @@ public class NotificationService {
   }
 
   /**
-   * Enriches incoming notification bundle with DEMIS Sequence ID and passes it down to NCAPI for
+   * Enriches incoming notification bundle with DEMIS Sequence ID and passes it down to FSW for
    * further operations
    *
    * @param content serialized notification bundle
@@ -96,7 +96,7 @@ public class NotificationService {
     final String transactionId = igsTransactionIdGeneratorService.generateTransactionId(bundle);
     contextEnrichmentService.enrichBundleWithContextInformation(bundle, token);
     fhirBundleOperationService.enrichBundleWithTransactionId(bundle, transactionId);
-    ncapiService.sendNotificationToNcapi(bundle);
+    fhirStorageService.sendNotificationToFhirStorage(bundle);
     return buildResponse(transactionId, bundle, validationOutcome);
   }
 

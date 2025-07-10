@@ -86,7 +86,6 @@ public class IgsTransactionIdGeneratorService {
             .orElseThrow()
             .getValue();
     if (!sequencingLabIdPattern.matcher(sequencingLabId).matches()) {
-      log.error("Found invalid lab sequencingLabId: {}", sequencingLabId);
       throw new IgsServiceException(
           ErrorCode.INVALID_LAB_ID,
           format("The lab sequence ID must be a 5-digit number, but found: %s", sequencingLabId));

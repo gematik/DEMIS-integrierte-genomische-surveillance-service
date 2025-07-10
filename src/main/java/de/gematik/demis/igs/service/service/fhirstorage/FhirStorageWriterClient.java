@@ -1,4 +1,4 @@
-package de.gematik.demis.igs.service.service.ncapi;
+package de.gematik.demis.igs.service.service.fhirstorage;
 
 /*-
  * #%L
@@ -26,22 +26,20 @@ package de.gematik.demis.igs.service.service.ncapi;
  * #L%
  */
 
-import static de.gematik.demis.igs.service.exception.ServiceCallErrorCode.NCAPI;
+import static de.gematik.demis.igs.service.exception.ServiceCallErrorCode.FSW;
 
 import de.gematik.demis.service.base.feign.annotations.ErrorCode;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 
-@FeignClient(name = "notification-clearing-api", url = "${igs.ncapi.url}")
-public interface NotificationClearingApiClient {
+@FeignClient(name = "fhir-storage-writer", url = "${igs.fhir-storage-writer.url}")
+public interface FhirStorageWriterClient {
 
   @PostMapping(
       value = "/notification-clearing-api/fhir/",
       consumes = "application/fhir+json",
       produces = "application/fhir+json")
-  @ErrorCode(NCAPI)
-  ResponseEntity<String> sendNotification(
-      @RequestHeader("Authorization") String bearerToken, String bundleAsJson);
+  @ErrorCode(FSW)
+  ResponseEntity<String> sendNotification(String bundleAsJson);
 }

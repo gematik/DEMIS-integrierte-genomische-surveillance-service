@@ -2,6 +2,12 @@
 
 # Release Notes IGS-Service
 
+## Release 1.2.2
+- Updated dependencies
+- Updated Readme license disclaimer
+- Updated Readme concerning configuration of retention periods
+- remove all NCAPI references
+
 ## Release 1.2.0
 - Extended validation for fastA
 - Updated ospo-resources for adding additional notes and disclaimer

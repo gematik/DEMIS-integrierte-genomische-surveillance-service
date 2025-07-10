@@ -95,6 +95,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchUploadException;
 import software.amazon.awssdk.services.s3.model.PutBucketLifecycleConfigurationRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -510,6 +511,32 @@ class S3StorageServiceTest {
       verify(client).copyObject(copyObjectRequestCaptor.capture());
       assertThat(copyObjectRequestCaptor.getValue().metadata())
           .containsEntry(UPLOAD_STATUS, UPLOAD_STATUS_DONE);
+    }
+
+    @Test
+    void shouldThrowIgsExceptionIfUploadIdError() {
+      String uploadId = "uploadId";
+      List<CompletedChunk> completedChunks = List.of(new CompletedChunk(1, "eTag1"));
+      when(client.completeMultipartUpload(any(CompleteMultipartUploadRequest.class)))
+          .thenThrow(NoSuchUploadException.builder().statusCode(400).build());
+      IgsServiceException exception =
+          assertThrows(
+              IgsServiceException.class,
+              () -> underTest.informUploadComplete(EXAMPLE_ID, uploadId, completedChunks));
+      assertThat(exception.getMessage())
+          .isEqualTo("Upload with ID " + uploadId + " does not exist");
+    }
+
+    @Test
+    void shouldThrowIgsExceptionEtagNotKnown() {
+      List<CompletedChunk> completedChunks = List.of(new CompletedChunk(1, "eTag1"));
+      when(client.completeMultipartUpload(any(CompleteMultipartUploadRequest.class)))
+          .thenThrow(S3Exception.builder().statusCode(400).build());
+      IgsServiceException exception =
+          assertThrows(
+              IgsServiceException.class,
+              () -> underTest.informUploadComplete(EXAMPLE_ID, "uploadId", completedChunks));
+      assertThat(exception.getMessage()).isEqualTo("E-Tag of the upload is invalid");
     }
   }
 

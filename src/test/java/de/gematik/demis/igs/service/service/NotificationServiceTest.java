@@ -40,8 +40,8 @@ import de.gematik.demis.igs.service.exception.ErrorCode;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
 import de.gematik.demis.igs.service.service.contextenrichment.ContextEnrichmentService;
 import de.gematik.demis.igs.service.service.fhir.FhirBundleOperationService;
+import de.gematik.demis.igs.service.service.fhirstorage.FhirStorageService;
 import de.gematik.demis.igs.service.service.igs.IgsTransactionIdGeneratorService;
-import de.gematik.demis.igs.service.service.ncapi.NcapiService;
 import de.gematik.demis.igs.service.service.validation.NotificationValidatorService;
 import java.util.List;
 import java.util.Optional;
@@ -71,7 +71,7 @@ class NotificationServiceTest {
       mock(FhirBundleOperationService.class);
   private final IgsTransactionIdGeneratorService igsTransactionIdGeneratorService =
       mock(IgsTransactionIdGeneratorService.class);
-  private final NcapiService ncapiService = mock(NcapiService.class);
+  private final FhirStorageService fhirStorageService = mock(FhirStorageService.class);
   private final ContextEnrichmentService contextEnrichmentService =
       mock(ContextEnrichmentService.class);
   private final NotificationValidatorService notificationValidatorService =
@@ -81,7 +81,7 @@ class NotificationServiceTest {
           notificationValidatorService,
           fhirBundleOperationService,
           igsTransactionIdGeneratorService,
-          ncapiService,
+          fhirStorageService,
           contextEnrichmentService);
   @Captor ArgumentCaptor<Bundle> bundleCaptor;
 

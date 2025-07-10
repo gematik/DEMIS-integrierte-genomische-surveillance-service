@@ -1,4 +1,4 @@
-package de.gematik.demis.igs.service.service.ncapi;
+package de.gematik.demis.igs.service.service.fhirstorage;
 
 /*-
  * #%L
@@ -44,39 +44,36 @@ import org.springframework.http.ResponseEntity;
 import util.BaseUtil;
 
 @ExtendWith(MockitoExtension.class)
-class NcapiServiceTest {
+class FhirStorageServiceTest {
 
   @Captor private ArgumentCaptor<String> jsonStringCaptor;
-  @Captor private ArgumentCaptor<String> tokenCaptor;
   private BaseUtil testUtils = new BaseUtil();
 
-  @Mock NotificationClearingApiClient client;
+  @Mock FhirStorageWriterClient client;
 
-  @InjectMocks NcapiService service;
+  @InjectMocks FhirStorageService service;
 
   @Test
   void shouldSendBundleInBundle() {
     Bundle bundle = testUtils.getDefaultBundle();
-    when(client.sendNotification(tokenCaptor.capture(), jsonStringCaptor.capture()))
+    when(client.sendNotification(jsonStringCaptor.capture()))
         .thenReturn(ResponseEntity.ok("Call successful"));
-    service.sendNotificationToNcapi(bundle);
-    assertThat(tokenCaptor.getValue()).startsWith("Bearer ");
+    service.sendNotificationToFhirStorage(bundle);
     Bundle transactionBundle = testUtils.getBundleFromJsonString(jsonStringCaptor.getValue());
     assertThat(transactionBundle.getEntry()).hasSize(1);
   }
 
   @Test
-  void shouldThrowIgsNcapiExceptionIfRequestIsNotOk() {
+  void shouldThrowIgsFswExceptionIfRequestIsNotOk() {
     Bundle bundle = testUtils.getDefaultBundle();
-    when(client.sendNotification(tokenCaptor.capture(), jsonStringCaptor.capture()))
-        .thenThrow(ServiceCallException.class);
-    assertThrows(IgsServiceException.class, () -> service.sendNotificationToNcapi(bundle));
+    when(client.sendNotification(jsonStringCaptor.capture())).thenThrow(ServiceCallException.class);
+    assertThrows(IgsServiceException.class, () -> service.sendNotificationToFhirStorage(bundle));
   }
 
   @Test
   void shouldSetTagForRkiCorrectly() {
     Bundle bundle = testUtils.getDefaultBundle();
-    service.sendNotificationToNcapi(bundle);
+    service.sendNotificationToFhirStorage(bundle);
     assertThat(bundle.getMeta().getTag()).hasSize(1);
     assertThat(bundle.getMeta().getTag().getFirst().getCode()).isEqualTo("1.");
     assertThat(bundle.getMeta().getTag().getFirst().getSystem())

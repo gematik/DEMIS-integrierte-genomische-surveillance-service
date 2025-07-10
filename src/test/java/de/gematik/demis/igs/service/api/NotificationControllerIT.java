@@ -34,7 +34,6 @@ import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.ERROR;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.INFORMATION;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE;
@@ -45,7 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION_WRONG_SEQUENCEING_LAB_ID;
 
-import de.gematik.demis.igs.service.service.ncapi.NotificationClearingApiClient;
+import de.gematik.demis.igs.service.service.fhirstorage.FhirStorageWriterClient;
 import de.gematik.demis.igs.service.service.storage.S3StorageService;
 import de.gematik.demis.igs.service.service.validation.ValidationServiceClient;
 import de.gematik.demis.service.base.error.ServiceCallException;
@@ -81,7 +80,7 @@ class NotificationControllerIT {
   private static final String SECOND_DOCUMENT_ID = "fde4g2g1-b6b6-46e0-b721-2d9869ab8195";
   @Autowired MockMvc mockMvc;
   @MockitoBean private ValidationServiceClient validationClient;
-  @MockitoBean private NotificationClearingApiClient ncapiClient;
+  @MockitoBean private FhirStorageWriterClient fhirStorageWriterClient;
   @MockitoBean private S3StorageService s3StorageService;
 
   @ParameterizedTest
@@ -111,7 +110,7 @@ class NotificationControllerIT {
   void shouldUploadNotificationSuccessfully() {
     when(validationClient.validateXmlBundle(anyString()))
         .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
-    when(ncapiClient.sendNotification(startsWith("Bearer "), anyString()))
+    when(fhirStorageWriterClient.sendNotification(anyString()))
         .thenReturn(ResponseEntity.ok().build());
     when(s3StorageService.getMetadata(FIRST_DOCUMENT_ID))
         .thenReturn(baseUtil.determineMetadataForValid());
@@ -167,7 +166,7 @@ class NotificationControllerIT {
   void shouldReturn422WithOperationOutputInBodyIfValidationFailed() {
     Response outcomeResponse = baseUtil.createOutcomeResponse(ERROR);
     when(validationClient.validateXmlBundle(anyString())).thenReturn(outcomeResponse);
-    when(ncapiClient.sendNotification(startsWith("Bearer "), anyString()))
+    when(fhirStorageWriterClient.sendNotification(anyString()))
         .thenReturn(ResponseEntity.ok().build());
     String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
     MockHttpServletResponse response =
@@ -202,8 +201,8 @@ class NotificationControllerIT {
 
   @Test
   @SneakyThrows
-  void shouldReturn500IfNcapiThrowsException() {
-    when(ncapiClient.sendNotification(startsWith("Bearer "), anyString()))
+  void shouldReturn500IfFswThrowsException() {
+    when(fhirStorageWriterClient.sendNotification(anyString()))
         .thenThrow(ServiceCallException.class);
     String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
     mockMvc
