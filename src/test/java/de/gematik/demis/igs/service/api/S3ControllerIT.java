@@ -438,7 +438,7 @@ public class S3ControllerIT {
 
     @Test
     @SneakyThrows
-    void shouldReturnReturnInternalServerErrorOnFailure() {
+    void shouldReturnBadRequestOnFailure() {
       File sampleData = new File(PATH_TO_SAMPLE_DATA);
       String documentId = createDocumentReference();
       S3Info s3Info = createS3Info(documentId, (int) sampleData.length());
@@ -453,7 +453,9 @@ public class S3ControllerIT {
               post(S3_UPLOAD_FINISH_UPLOAD.replace("{documentId}", documentId))
                   .contentType(APPLICATION_JSON)
                   .content(requestBody))
-          .andExpect(status().isInternalServerError());
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.detail").value("E-Tag of the upload is invalid"))
+          .andExpect(jsonPath("$.errorCode").value("INVALID_UPLOAD"));
     }
 
     @SneakyThrows

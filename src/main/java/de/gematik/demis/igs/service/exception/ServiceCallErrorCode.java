@@ -30,5 +30,5 @@ package de.gematik.demis.igs.service.exception;
 public interface ServiceCallErrorCode {
   String VS = "VS";
   String CES = "CES";
-  String NCAPI = "NCAPI";
+  String FSW = "FSW";
 }

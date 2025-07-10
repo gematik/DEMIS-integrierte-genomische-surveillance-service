@@ -39,7 +39,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.function.BiFunction;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -75,14 +74,17 @@ public class HashValidatorFunction implements BiFunction<InputStream, OutputStre
       if (hash.equals(calculatedHash)) {
         validationTracker.updateHashStatus(documentId, VALID);
       } else {
-        log.error("Hash mismatch: expected {}, got {}", hash, calculatedHash);
+        log.info("Hash mismatch: expected {}, got {}", hash, calculatedHash);
         validationTracker.updateHashStatus(documentId, VALIDATION_FAILED, HASH_ERROR_MSG);
       }
       dis.close();
-    } catch (NoSuchAlgorithmException | IOException ex) {
-      log.error("Error while validating hash", ex);
+    } catch (Exception ex) {
       validationTracker.updateHashStatus(
           documentId, VALIDATION_FAILED, INTERNAL_SERVER_ERROR_MESSAGE);
+      // IOException is a common case because of PipedInputStream, so we do not log it as an error
+      if (!(ex instanceof IOException)) {
+        log.error("Error while validating hash", ex);
+      }
     }
     return null;
   }

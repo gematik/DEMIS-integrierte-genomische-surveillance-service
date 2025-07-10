@@ -35,6 +35,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
   FHIR_VALIDATION_FATAL(HttpStatus.BAD_REQUEST),
   INVALID_FILE_SIZE(HttpStatus.BAD_REQUEST),
+  INVALID_UPLOAD(HttpStatus.BAD_REQUEST),
   INVALID_DOCUMENT_ID(HttpStatus.BAD_REQUEST),
   INVALID_LAB_ID(HttpStatus.BAD_REQUEST),
   INVALID_DOCUMENT_HASH(HttpStatus.BAD_REQUEST),

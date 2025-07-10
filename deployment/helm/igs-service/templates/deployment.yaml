@@ -5,8 +5,6 @@
 {{- $dockerTag := .Values.required.image.tag | default .Chart.AppVersion -}}
 {{- $secretMinioName := .Values.config.secrets.minio.name | required ".Values.config.secrets.minio.name is required." -}}
 {{- $secretMinioEntries := .Values.config.secrets.minio.entries -}}
-{{- $secretApiKeysName := .Values.config.secrets.api.name | required ".Values.config.secrets.api.name is required." -}}
-{{- $secretApiKeysEntries := .Values.config.secrets.api.entries -}}
 {{- $secretIgsName := .Values.config.secrets.igs.name | required ".Values.config.secrets.igs.name is required" -}}
 {{- $secretIgsEntries := .Values.config.secrets.igs.entries -}}
 apiVersion: apps/v1
@@ -95,14 +93,6 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ $secretIgsName | quote }}
-                  key: {{ $val | quote }}
-            {{- end }}
-            {{- range $key, $val := $secretApiKeysEntries }}
-            # Custom Environment Variables for API Key Secrets
-            - name: {{ $key | quote }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secretApiKeysName | quote }}
                   key: {{ $val | quote }}
             {{- end }}
           # Mount Volumes in container

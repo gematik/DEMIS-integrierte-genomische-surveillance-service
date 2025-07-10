@@ -40,14 +40,6 @@ config:
       entries:
         S3_ACCESS_KEY: MINIO_ROOT_USER
         S3_SECRET_KEY: MINIO_ROOT_PASSWORD
-    api:
-      # The name of the (external) Secret for API and the entries to be used and mapped
-      name: ncapi-apikey
-      # Define the API Key Variable Name from the defined config.secret.name
-      # The API Keys will be read from the given (external) Secret and injected in the container with the same name.
-      # IMPORTANT: these values must be defined in the Secret
-      entries:
-        NCAPI_TOKEN: NCS_APIKEY
 
 # Extra Labels to be added
 # E.g.
@@ -63,7 +55,7 @@ deploymentLabels: {}
 #   key: value
 customEnvVars:
   S3_URL: "https://igs-storage.ingress.local"
-  DEMIS_NETWORK_NOTIFICATION_CLEARING_API_ADDRESS: "http://notification-clearing-api.demis.svc.cluster.local"
+  DEMIS_NETWORK_FHIR_STORAGE_WRITER_ADDRESS: "http://fhir-storage-writer.demis.svc.cluster.local"
   DEMIS_NETWORK_VALIDATION_SERVICE_ADDRESS: "http://validation-service.demis.svc.cluster.local"
   DEMIS_NETWORK_CONTENT_ENRICHMENT_SERVICE_ADDRESS: "http://context-enrichment-service.demis.svc.cluster.local"
 

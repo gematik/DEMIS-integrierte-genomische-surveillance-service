@@ -1,4 +1,4 @@
-package de.gematik.demis.igs.service.service.ncapi;
+package de.gematik.demis.igs.service.service.fhirstorage;
 
 /*-
  * #%L
@@ -37,33 +37,29 @@ import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Resource;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
-/** Service to send bundle to <NCAPI> */
+/** Service to send bundle to <FSW> */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class NcapiService {
+public class FhirStorageService {
 
-  private final NotificationClearingApiClient ncapiClient;
-
-  @Value("${igs.ncapi.apikey}")
-  private String apiKey;
+  private final FhirStorageWriterClient fhirStorageWriterClient;
 
   /**
    * Takes the <Bundle> and wrap it into a transactionBundle. Therefor encryption for RIK will be
    * done
    *
-   * @param bundle the information in <Bundle> representation to send to <NCAPI>
+   * @param bundle the information in <Bundle> representation to send to <FSW>
    */
-  public void sendNotificationToNcapi(Bundle bundle) {
+  public void sendNotificationToFhirStorage(Bundle bundle) {
     setRkiDepartmentIdentifierTag(bundle);
     Bundle transactionBundle = createTransactionBundle(bundle);
     String jsonBundle = serializeResource(transactionBundle, MediaType.APPLICATION_JSON);
     try {
-      ncapiClient.sendNotification("Bearer " + apiKey, jsonBundle);
+      fhirStorageWriterClient.sendNotification(jsonBundle);
     } catch (Exception ex) {
       throw new IgsServiceException(
           ErrorCode.INTERNAL_SERVER_ERROR, "Save notification failed", ex);
