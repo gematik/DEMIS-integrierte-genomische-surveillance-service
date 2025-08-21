@@ -2,3 +2,7 @@ fasta:
   validation:
     pathogen:
       asdf: "40,20,0.5"
+
+feature:
+  flag:
+    new_api_endpoints: false

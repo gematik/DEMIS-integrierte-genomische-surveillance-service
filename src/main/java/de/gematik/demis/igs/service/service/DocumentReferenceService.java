@@ -257,7 +257,7 @@ public class DocumentReferenceService {
 
   private void handleException(String documentId, Exception ex) {
     log.error("Error while validating document", ex);
-    if (ex instanceof ZipException e) {
+    if (ex instanceof ZipException) {
       validationTracker.updateGzipStatus(
           documentId, VALIDATION_FAILED, INVALID_COMPRESSED_FILE_ERROR_MSG);
     } else {

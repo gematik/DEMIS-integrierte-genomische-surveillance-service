@@ -37,7 +37,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 public interface FhirStorageWriterClient {
 
   @PostMapping(
-      value = "/notification-clearing-api/fhir/",
+      value = "${igs.fhir-storage-writer.context-path}",
       consumes = "application/fhir+json",
       produces = "application/fhir+json")
   @ErrorCode(FSW)

@@ -31,8 +31,12 @@ import static de.gematik.demis.igs.service.exception.ErrorCode.FHIR_VALIDATION_F
 import static de.gematik.demis.igs.service.exception.ErrorCode.FILE_NOT_FOUND;
 import static de.gematik.demis.igs.service.exception.ErrorCode.INVALID_DOCUMENT_REFERENCE;
 import static de.gematik.demis.igs.service.exception.ErrorCode.SEQUENCE_DATA_NOT_VALID;
+import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
+import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE;
+import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE_OLD;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
 import static de.gematik.demis.igs.service.utils.ErrorMessages.RESOURCE_NOT_FOUND_ERROR_MSG;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.ERROR;
@@ -41,7 +45,9 @@ import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.INFORMATION;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.WARNING;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.http.MediaType.APPLICATION_XML;
@@ -52,49 +58,58 @@ import de.gematik.demis.igs.service.service.fhir.FhirBundleOperationService;
 import de.gematik.demis.igs.service.service.fhir.FhirOperationOutcomeOperationService;
 import de.gematik.demis.igs.service.service.storage.S3StorageService;
 import de.gematik.demis.service.base.error.ServiceCallException;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EmptySource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
+import org.springframework.http.HttpHeaders;
 import util.BaseUtil;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationValidatorServiceTest {
 
   private static final String DOCUMENT_REFERENCE_BASE =
-      "https://demis.rki.de/fhir/DocumentReference/";
+      "https://demis.rki.de/surveillance/notification-sequence%s/fhir/DocumentReference/";
   private static final String FIRST_DOCUMENT_REFERENCE_ID = "ecd3f1f0-b6b6-46e0-b721-2d9869ab8195";
   private static final String FIRST_DOCUMENT_REFERENCE =
-      DOCUMENT_REFERENCE_BASE + FIRST_DOCUMENT_REFERENCE_ID;
+      format(DOCUMENT_REFERENCE_BASE, "") + FIRST_DOCUMENT_REFERENCE_ID;
   private static final String SECOND_DOCUMENT_REFERENCE_ID = "fde4g2g1-b6b6-46e0-b721-2d9869ab8195";
   private static final String SECOND_DOCUMENT_REFERENCE =
-      DOCUMENT_REFERENCE_BASE + SECOND_DOCUMENT_REFERENCE_ID;
+      format(DOCUMENT_REFERENCE_BASE, "") + SECOND_DOCUMENT_REFERENCE_ID;
   private static final String MALICIOUS_DOCUMENT_REFERENCE =
-      "https://malicious/fhir/DocumentReference/" + FIRST_DOCUMENT_REFERENCE_ID;
+      "https://malicious/surveillance/notification-sequence/fhir/DocumentReference/"
+          + FIRST_DOCUMENT_REFERENCE_ID;
 
   BaseUtil testUtil = new BaseUtil();
   @Mock ValidationServiceClient client;
   @Mock FhirOperationOutcomeOperationService outcomeService;
   @Mock FhirBundleOperationService fhirBundleOperationService;
   @Mock S3StorageService s3StorageService;
+  @Mock HttpServletRequest httpServletRequest;
+  @Captor ArgumentCaptor<HttpHeaders> headerCaptor;
 
   @InjectMocks NotificationValidatorService underTest;
 
   @BeforeEach
   void setUp() {
-    underTest.setDownloadEndpoint(DOCUMENT_REFERENCE_BASE);
+    underTest.setDemisExternalUrl("https://demis.rki.de");
+    underTest.setVersionHeaderForwardEnabled(false);
     // outcomeService should only response what he was given
     lenient()
         .when(outcomeService.error(any(), any(), any(), any()))
@@ -107,7 +122,7 @@ class NotificationValidatorServiceTest {
   @Test
   void shouldValidateSuccessfully() {
     String bundleString = testUtil.getDefaultBundleAsString();
-    when(client.validateJsonBundle(bundleString))
+    when(client.validateJsonBundle(any(), eq(bundleString)))
         .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
     OperationOutcome outcome = underTest.validateFhir(bundleString, APPLICATION_JSON);
     assertThat(
@@ -120,7 +135,7 @@ class NotificationValidatorServiceTest {
   @Test
   void shouldCallXmlClientIfMediaTypeXml() {
     String bundleString = testUtil.getDefaultBundleAsString();
-    when(client.validateXmlBundle(bundleString))
+    when(client.validateXmlBundle(any(), eq(bundleString)))
         .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
     OperationOutcome outcome = underTest.validateFhir(bundleString, APPLICATION_XML);
     assertThat(
@@ -133,7 +148,8 @@ class NotificationValidatorServiceTest {
   @Test
   void shouldThrowExceptionIfValidationRequestFails() {
     String bundleString = testUtil.getDefaultBundleAsString();
-    when(client.validateJsonBundle(bundleString)).thenReturn(testUtil.createBadRequestResponse());
+    when(client.validateJsonBundle(any(), eq(bundleString)))
+        .thenReturn(testUtil.createBadRequestResponse());
     ServiceCallException exception =
         assertThrows(
             ServiceCallException.class,
@@ -145,7 +161,8 @@ class NotificationValidatorServiceTest {
   @Test
   void shouldThrowExceptionIfValidationFatal() {
     String bundleString = testUtil.getDefaultBundleAsString();
-    when(client.validateJsonBundle(bundleString)).thenReturn(testUtil.createOutcomeResponse(FATAL));
+    when(client.validateJsonBundle(any(), eq(bundleString)))
+        .thenReturn(testUtil.createOutcomeResponse(FATAL));
     IgsValidationException exception =
         assertThrows(
             IgsValidationException.class,
@@ -156,7 +173,8 @@ class NotificationValidatorServiceTest {
   @Test
   void shouldThrowExceptionIfValidationError() {
     String bundleString = testUtil.getDefaultBundleAsString();
-    when(client.validateJsonBundle(bundleString)).thenReturn(testUtil.createOutcomeResponse(ERROR));
+    when(client.validateJsonBundle(any(), eq(bundleString)))
+        .thenReturn(testUtil.createOutcomeResponse(ERROR));
     IgsValidationException exception =
         assertThrows(
             IgsValidationException.class,
@@ -167,7 +185,7 @@ class NotificationValidatorServiceTest {
   @Test
   void shouldThrowExceptionIfValidationWarning() {
     String bundleString = testUtil.getDefaultBundleAsString();
-    when(client.validateJsonBundle(bundleString))
+    when(client.validateJsonBundle(any(), eq(bundleString)))
         .thenReturn(testUtil.createOutcomeResponse(WARNING));
     IgsValidationException exception =
         assertThrows(
@@ -221,6 +239,7 @@ class NotificationValidatorServiceTest {
   @ParameterizedTest
   void shouldThrowIgsServiceExceptionIfNoDocumentReferenceDelivered(List<String> docrefs) {
     Bundle bundle = testUtil.getDefaultBundle();
+    when(fhirBundleOperationService.determineDocumentReferenceUrls(bundle)).thenReturn(docrefs);
     IgsServiceException ex =
         assertThrows(IgsServiceException.class, () -> underTest.validateDocumentReferences(bundle));
     assertThat(ex.getErrorCode()).isEqualTo(SEQUENCE_DATA_NOT_VALID.name());
@@ -270,5 +289,107 @@ class NotificationValidatorServiceTest {
             "The document reference url "
                 + MALICIOUS_DOCUMENT_REFERENCE
                 + " does not point to Demis-Storage.");
+  }
+
+  @Nested
+  class FeatureFlag_FEATURE_FLAG_NEW_API_ENDPOINTS {
+
+    public static final String VERSION = "v1";
+    private static final String VERSIONED_DOCUMENT_REFERENCE =
+        format(DOCUMENT_REFERENCE_BASE, "/" + VERSION) + FIRST_DOCUMENT_REFERENCE_ID;
+    private static final String VERSIONED_MALICIOUS_DOCUMENT_REFERENCE =
+        "https://malicious/surveillance/notification-sequence/"
+            + VERSION
+            + "/fhir/DocumentReference/"
+            + FIRST_DOCUMENT_REFERENCE_ID;
+
+    @Test
+    void shouldCheckDocumentReferenceUrlWithVersionNumber() {
+      underTest.setVersionHeaderForwardEnabled(true);
+      Bundle bundle = testUtil.getDefaultBundle();
+      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
+      when(s3StorageService.getMetadata(FIRST_DOCUMENT_REFERENCE_ID))
+          .thenReturn(testUtil.determineMetadataForValid());
+      when(fhirBundleOperationService.determineDocumentReferenceUrls(bundle))
+          .thenReturn(List.of(VERSIONED_DOCUMENT_REFERENCE));
+
+      underTest.validateDocumentReferences(bundle);
+    }
+
+    @Test
+    void shouldCheckDocumentReferenceUrlWithVersionNumberAndNoVersionNumberSuccessfully() {
+      underTest.setVersionHeaderForwardEnabled(true);
+      Bundle bundle = testUtil.getDefaultBundle();
+      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
+      when(s3StorageService.getMetadata(FIRST_DOCUMENT_REFERENCE_ID))
+          .thenReturn(testUtil.determineMetadataForValid());
+      when(s3StorageService.getMetadata(SECOND_DOCUMENT_REFERENCE_ID))
+          .thenReturn(testUtil.determineMetadataForValid());
+      when(fhirBundleOperationService.determineDocumentReferenceUrls(bundle))
+          .thenReturn(List.of(VERSIONED_DOCUMENT_REFERENCE, SECOND_DOCUMENT_REFERENCE));
+
+      underTest.validateDocumentReferences(bundle);
+    }
+
+    @Test
+    void shouldThrowExceptionIfOneDocumentReferenceWithoutVersionNumber() {
+      underTest.setVersionHeaderForwardEnabled(true);
+      Bundle bundle = testUtil.getDefaultBundle();
+      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
+      when(fhirBundleOperationService.determineDocumentReferenceUrls(bundle))
+          .thenReturn(
+              List.of(VERSIONED_DOCUMENT_REFERENCE, VERSIONED_MALICIOUS_DOCUMENT_REFERENCE));
+
+      IgsServiceException ex =
+          assertThrows(
+              IgsServiceException.class, () -> underTest.validateDocumentReferences(bundle));
+      assertThat(ex.getErrorCode()).isEqualTo(INVALID_DOCUMENT_REFERENCE.name());
+      assertThat(ex.getMessage())
+          .isEqualTo(
+              "The document reference url "
+                  + VERSIONED_MALICIOUS_DOCUMENT_REFERENCE
+                  + " does not point to Demis-Storage.");
+    }
+
+    @Test
+    void shouldForwardHeaderCorrectly() {
+      underTest.setVersionHeaderForwardEnabled(true);
+      String bundleString = testUtil.getDefaultBundleAsString();
+      String profile = "igs-profile-snapshots";
+      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
+      when(httpServletRequest.getHeader(HEADER_FHIR_PROFILE)).thenReturn(profile);
+      when(client.validateJsonBundle(any(), eq(bundleString)))
+          .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
+
+      underTest.validateFhir(bundleString, APPLICATION_JSON);
+
+      verify(client).validateJsonBundle(headerCaptor.capture(), eq(bundleString));
+      assertThat(headerCaptor.getValue())
+          .isNotNull()
+          .hasSize(3)
+          .containsKey(HEADER_FHIR_PROFILE)
+          .extractingByKey(HEADER_FHIR_PROFILE)
+          .isEqualTo(List.of(profile));
+      assertThat(headerCaptor.getValue())
+          .extractingByKey(HEADER_FHIR_API_VERSION)
+          .isEqualTo(List.of(VERSION));
+    }
+
+    @Test
+    void shouldUseDefaultIfNoHeaderSet() {
+      underTest.setVersionHeaderForwardEnabled(true);
+      String bundleString = testUtil.getDefaultBundleAsString();
+      when(client.validateJsonBundle(any(), eq(bundleString)))
+          .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
+      underTest.validateFhir(bundleString, APPLICATION_JSON);
+
+      verify(client).validateJsonBundle(headerCaptor.capture(), eq(bundleString));
+      assertThat(headerCaptor.getValue())
+          .isNotNull()
+          .hasSize(1)
+          .containsKey(HEADER_FHIR_PROFILE_OLD)
+          .extractingByKey(HEADER_FHIR_PROFILE_OLD)
+          .isEqualTo(List.of("igs-profile-snapshots"));
+    }
   }
 }

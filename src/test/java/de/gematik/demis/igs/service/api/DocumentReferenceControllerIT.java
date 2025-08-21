@@ -56,6 +56,7 @@ import static util.BaseUtil.PATH_TO_FASTQ;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.gematik.demis.igs.service.service.storage.SimpleStorageService;
+import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -68,6 +69,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -87,17 +89,13 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 import util.BaseUtil;
 
 @Testcontainers
-@SpringBootTest
-@AutoConfigureMockMvc
 class DocumentReferenceControllerIT {
 
-  private static final String LOCATION_HEADER = "location";
-
-  private static final Pattern LOCATION_PATTERN =
+  public static final String PREFIX = "/fhir/DocumentReference/";
+  public static final Pattern LOCATION_PATTERN =
       Pattern.compile(
-          "/fhir/DocumentReference/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-
-  private static final int CHARACTERS_IN_LOCATION_BEFORE_ID = 24;
+          PREFIX + "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+  private static final String LOCATION_HEADER = "location";
 
   private static final FhirContext contextR4 = FhirContext.forR4Cached();
   private static final String DOCUMENT_ID = "someId";
@@ -115,8 +113,6 @@ class DocumentReferenceControllerIT {
           .withCommand("server /mnt/data");
 
   private final BaseUtil testUtil = new BaseUtil();
-  @Autowired private MockMvc mockMvc;
-  @Autowired private SimpleStorageService storageService;
 
   @DynamicPropertySource
   static void minioProperties(DynamicPropertyRegistry registry) {
@@ -129,7 +125,21 @@ class DocumentReferenceControllerIT {
   }
 
   @Nested
+  @SpringBootTest(properties = {"igs.context-path=/"})
+  @AutoConfigureMockMvc
   class CreateDocumentReferenceTests {
+
+    @Value("${igs.context-path}")
+    private String contextPath;
+
+    private String fhirDocumentReferenceBaseUrl;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private SimpleStorageService storageService;
+
+    @PostConstruct
+    void init() {
+      fhirDocumentReferenceBaseUrl = contextPath + FHIR_DOCUMENT_REFERENCE_BASE;
+    }
 
     @Test
     @SneakyThrows
@@ -140,7 +150,7 @@ class DocumentReferenceControllerIT {
       String responseBody =
           mockMvc
               .perform(
-                  post(FHIR_DOCUMENT_REFERENCE_BASE)
+                  post(fhirDocumentReferenceBaseUrl)
                       .contentType(APPLICATION_JSON_VALUE)
                       .content(documentReferenceRequest))
               .andExpect(status().isCreated())
@@ -176,7 +186,7 @@ class DocumentReferenceControllerIT {
       MockHttpServletResponse response =
           mockMvc
               .perform(
-                  post(FHIR_DOCUMENT_REFERENCE_BASE)
+                  post(fhirDocumentReferenceBaseUrl)
                       .contentType(contentType)
                       .content(documentReferenceRequest))
               .andExpect(status().isCreated())
@@ -186,8 +196,7 @@ class DocumentReferenceControllerIT {
               .getResponse();
 
       String locationHeader = response.getHeader(DocumentReferenceControllerIT.LOCATION_HEADER);
-      String locationHeaderDocumentReferenceId =
-          locationHeader.substring(CHARACTERS_IN_LOCATION_BEFORE_ID);
+      String locationHeaderDocumentReferenceId = locationHeader.substring(PREFIX.length());
 
       String responseBody = response.getContentAsString();
       IParser parser = contextR4.newJsonParser();
@@ -206,7 +215,7 @@ class DocumentReferenceControllerIT {
       String documentReferenceRequest = testUtil.readFileToString(PATH_TO_DOCUMENT_REFERENCE_JSON);
       mockMvc
           .perform(
-              post(FHIR_DOCUMENT_REFERENCE_BASE)
+              post(fhirDocumentReferenceBaseUrl)
                   .contentType(contentType)
                   .content(documentReferenceRequest))
           .andExpect(status().isUnsupportedMediaType());
@@ -219,7 +228,7 @@ class DocumentReferenceControllerIT {
       MockHttpServletResponse response =
           mockMvc
               .perform(
-                  post(FHIR_DOCUMENT_REFERENCE_BASE)
+                  post(fhirDocumentReferenceBaseUrl)
                       .contentType(APPLICATION_XML_VALUE)
                       .content(documentReferenceRequest))
               .andExpect(status().isCreated())
@@ -229,8 +238,7 @@ class DocumentReferenceControllerIT {
               .getResponse();
 
       String locationHeader = response.getHeader(DocumentReferenceControllerIT.LOCATION_HEADER);
-      String locationHeaderDocumentReferenceId =
-          locationHeader.substring(CHARACTERS_IN_LOCATION_BEFORE_ID);
+      String locationHeaderDocumentReferenceId = locationHeader.substring(PREFIX.length());
 
       String responseBody = response.getContentAsString();
       IParser parser = contextR4.newXmlParser();
@@ -250,7 +258,7 @@ class DocumentReferenceControllerIT {
 
       mockMvc
           .perform(
-              post(FHIR_DOCUMENT_REFERENCE_BASE)
+              post(fhirDocumentReferenceBaseUrl)
                   .contentType(APPLICATION_JSON)
                   .content(documentReferenceRequest))
           .andExpect(status().isBadRequest())
@@ -264,7 +272,7 @@ class DocumentReferenceControllerIT {
 
       mockMvc
           .perform(
-              post(FHIR_DOCUMENT_REFERENCE_BASE)
+              post(fhirDocumentReferenceBaseUrl)
                   .contentType(APPLICATION_JSON)
                   .content(documentReferenceRequest))
           .andExpect(status().isBadRequest());
@@ -272,9 +280,69 @@ class DocumentReferenceControllerIT {
   }
 
   @Nested
+  @SpringBootTest(properties = {"igs.context-path=/fhir/"})
+  @AutoConfigureMockMvc
+  class CreateDocumentReferenceOnDifferentContextPathTests {
+
+    @Value("${igs.context-path}")
+    private String contextPath;
+
+    private String FHIR_DOCUMENT_REFERENCE_BASE_URL;
+
+    @Autowired private MockMvc mockMvc;
+
+    @PostConstruct
+    void init() {
+      FHIR_DOCUMENT_REFERENCE_BASE_URL = contextPath + FHIR_DOCUMENT_REFERENCE_BASE;
+    }
+
+    @Test
+    void shouldCreateDocumentReferenceWithContextPath() throws Exception {
+      String documentReferenceRequest =
+          testUtil.generateDocumentReferenceJsonForFile(PATH_TO_DOCUMENT_REFERENCE_JSON);
+      MockHttpServletResponse response =
+          mockMvc
+              .perform(
+                  post(FHIR_DOCUMENT_REFERENCE_BASE_URL)
+                      .contentType(APPLICATION_JSON_VALUE)
+                      .content(documentReferenceRequest))
+              .andExpect(status().isCreated())
+              .andExpect(header().string(LOCATION_HEADER, new MatchesPattern(LOCATION_PATTERN)))
+              .andExpect(
+                  header().string(CONTENT_TYPE, new StringStartsWith(APPLICATION_JSON_VALUE)))
+              .andReturn()
+              .getResponse();
+
+      String locationHeader = response.getHeader(DocumentReferenceControllerIT.LOCATION_HEADER);
+
+      String responseBody = response.getContentAsString();
+      IParser parser = contextR4.newJsonParser();
+      DocumentReference documentReference =
+          parser.parseResource(DocumentReference.class, responseBody);
+      String responseBodyDocumentReferenceId = documentReference.getIdPart();
+
+      assertThat(locationHeader).isNotNull().endsWith(responseBodyDocumentReferenceId);
+    }
+  }
+
+  @Nested
+  @SpringBootTest(properties = {"igs.context-path=/"})
+  @AutoConfigureMockMvc
   class DownloadBinaryTests {
 
     @Autowired S3Client s3;
+
+    @Value("${igs.context-path}")
+    private String contextPath;
+
+    private String FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private SimpleStorageService storageService;
+
+    @PostConstruct
+    void init() {
+      FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL = contextPath + FHIR_DOCUMENT_REFERENCE_BINARY_READ;
+    }
 
     @SneakyThrows
     void uploadFileAtDocumentIdWithStatusToBucket(
@@ -313,7 +381,7 @@ class DocumentReferenceControllerIT {
           PATH_TO_FASTQ, DOCUMENT_ID, VALID.name(), "sequence-data-valid");
       mockMvc
           .perform(
-              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ.replace("{documentId}", DOCUMENT_ID))
+              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL.replace("{documentId}", DOCUMENT_ID))
                   .param("path", "DocumentReference.content.attachment"))
           .andExpect(status().isOk())
           .andExpect(content().bytes(testUtil.readFileToByteArray(PATH_TO_FASTQ)))
@@ -331,7 +399,7 @@ class DocumentReferenceControllerIT {
           PATH_TO_FASTQ, DOCUMENT_ID, VALID.name(), "sequence-data");
       mockMvc
           .perform(
-              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ.replace(
+              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL.replace(
                       "{documentId}", NOT_EXISTING_DOCUMENT_ID))
                   .param("path", "DocumentReference.content.attachment")
                   .contentType(APPLICATION_OCTET_STREAM_VALUE)
@@ -344,7 +412,7 @@ class DocumentReferenceControllerIT {
     void shouldReturn400IfPathIsWrong() {
       mockMvc
           .perform(
-              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ.replace("{documentId}", DOCUMENT_ID))
+              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL.replace("{documentId}", DOCUMENT_ID))
                   .param("path", "WRONG PATH!"))
           .andExpect(status().isBadRequest());
     }

@@ -116,6 +116,7 @@ public class BaseUtil {
   public static final String PATH_TO_GZIP_INVALID =
       "sampleSequenceData/Sample.fastq_corrupt_gzip.gzip";
   public static final String PATH_TO_IGS_NOTIFICATION = "igsNotification/notification.xml";
+  public static final String PATH_TO_IGS_NOTIFICATION_JSON = "igsNotification/IGSMeldung.json";
   public static final String PATH_TO_IGS_NOTIFICATION_WRONG_SEQUENCEING_LAB_ID =
       "igsNotification/notificationWithInvalidSequenceLabId.xml";
   public static final String PATH_TO_IGS_NOTIFICATION_BUNDLE =

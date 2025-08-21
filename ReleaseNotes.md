@@ -2,6 +2,11 @@
 
 # Release Notes IGS-Service
 
+## Release 1.3.0
+- add feature flag FEATURE_FLAG_NEW_API_ENDPOINTS for header propagation of x-fhir-api-version and fhirProfile to validation-service
+- add new versioned API endpoints
+- Added the `jackson-dataformat-xml` dependency to enable XML serialization of IGSServiceExceptions
+
 ## Release 1.2.2
 - Updated dependencies
 - Updated Readme license disclaimer
