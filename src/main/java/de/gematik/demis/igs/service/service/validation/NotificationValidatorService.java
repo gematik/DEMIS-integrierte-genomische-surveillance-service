@@ -33,7 +33,11 @@ import static de.gematik.demis.igs.service.exception.ErrorCode.INVALID_DOCUMENT_
 import static de.gematik.demis.igs.service.exception.ErrorCode.SEQUENCE_DATA_NOT_VALID;
 import static de.gematik.demis.igs.service.exception.ServiceCallErrorCode.VS;
 import static de.gematik.demis.igs.service.parser.FhirParser.deserializeResource;
+import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
+import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE;
+import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE_OLD;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
+import static java.util.Optional.ofNullable;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import de.gematik.demis.igs.service.exception.ErrorCode;
@@ -47,10 +51,14 @@ import de.gematik.demis.service.base.error.ServiceCallException;
 import feign.Response;
 import feign.codec.Decoder;
 import feign.codec.StringDecoder;
-import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +66,7 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -70,22 +79,39 @@ import org.springframework.stereotype.Service;
 public class NotificationValidatorService {
 
   private static final String CLUSTER_INTERNAL_IGS_URI_PREFIX =
-      "/surveillance/notification-sequence";
+      "/surveillance/notification-sequence%s/fhir/";
   private final ValidationServiceClient validationServiceClient;
   private final Decoder decoder = new StringDecoder();
   private final FhirOperationOutcomeOperationService outcomeService;
   private final FhirBundleOperationService fhirBundleOperationService;
   private final SimpleStorageService storageService;
+  private final HttpServletRequest httpServletRequest;
 
   @Value("${igs.demis.external-url}")
+  @Setter
   private String demisExternalUrl;
 
-  @Setter private String downloadEndpoint;
+  @Setter
+  @Value("${feature.flag.new_api_endpoints}")
+  private boolean isVersionHeaderForwardEnabled;
 
-  @PostConstruct
-  void createDownloadEndpoint() {
-    this.downloadEndpoint =
-        demisExternalUrl + CLUSTER_INTERNAL_IGS_URI_PREFIX + FHIR_DOCUMENT_REFERENCE_BASE;
+  private List<String> getDownloadEndpoints() {
+    ArrayList<String> validEndpoints = new ArrayList<>();
+    validEndpoints.add(
+        demisExternalUrl
+            + CLUSTER_INTERNAL_IGS_URI_PREFIX.replace("%s", "")
+            + FHIR_DOCUMENT_REFERENCE_BASE);
+    List<String> versions = headersFromRequestByName(HEADER_FHIR_API_VERSION);
+    if (Objects.nonNull(versions)) {
+      versions.stream()
+          .map(
+              v ->
+                  demisExternalUrl
+                      + CLUSTER_INTERNAL_IGS_URI_PREFIX.replace("%s", "/" + v)
+                      + FHIR_DOCUMENT_REFERENCE_BASE)
+          .forEach(validEndpoints::add);
+    }
+    return validEndpoints;
   }
 
   /**
@@ -122,10 +148,22 @@ public class NotificationValidatorService {
     throw new IgsValidationException(errorCode, operationOutcome);
   }
 
+  private @Nullable List<String> headersFromRequestByName(@Nonnull String headerName) {
+    return ofNullable(httpServletRequest.getHeader(headerName)).map(List::of).orElse(null);
+  }
+
   private Response getValidationResponse(String content, MediaType mediaType) {
+    final HttpHeaders headers = new HttpHeaders();
+
+    if (isVersionHeaderForwardEnabled) {
+      headers.computeIfAbsent(HEADER_FHIR_API_VERSION, this::headersFromRequestByName);
+      headers.computeIfAbsent(HEADER_FHIR_PROFILE, this::headersFromRequestByName);
+    }
+    headers.computeIfAbsent(HEADER_FHIR_PROFILE_OLD, ignored -> List.of("igs-profile-snapshots"));
+
     return mediaType.equals(APPLICATION_JSON)
-        ? validationServiceClient.validateJsonBundle(content)
-        : validationServiceClient.validateXmlBundle(content);
+        ? validationServiceClient.validateJsonBundle(headers, content)
+        : validationServiceClient.validateXmlBundle(headers, content);
   }
 
   private String readResponse(final Response response) {
@@ -149,20 +187,21 @@ public class NotificationValidatorService {
       throw new IgsServiceException(
           SEQUENCE_DATA_NOT_VALID, "No DocumentReferences found in bundle.");
     }
-    documentReferenceUrls.forEach(this::validateUrl);
-    documentReferenceUrls.stream()
-        .map(this::extractDocumentReferenceId)
-        .forEach(this::ensureSequenceDataHasBeenValidated);
-  }
-
-  private void validateUrl(String documentReferenceUrl) {
-    if (!documentReferenceUrl.startsWith(downloadEndpoint)) {
+    List<String> validEndpoints = getDownloadEndpoints();
+    List<String> invlidDocumentReferences =
+        documentReferenceUrls.stream()
+            .filter(v -> validEndpoints.stream().noneMatch(v::startsWith))
+            .toList();
+    if (!invlidDocumentReferences.isEmpty()) {
       throw new IgsServiceException(
           INVALID_DOCUMENT_REFERENCE,
           String.format(
               "The document reference url %s does not point to Demis-Storage.",
-              documentReferenceUrl));
+              String.join(" and ", invlidDocumentReferences)));
     }
+    documentReferenceUrls.stream()
+        .map(this::extractDocumentReferenceId)
+        .forEach(this::ensureSequenceDataHasBeenValidated);
   }
 
   private String extractDocumentReferenceId(String documentReferenceUrl) {

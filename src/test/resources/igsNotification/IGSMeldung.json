@@ -1,0 +1,585 @@
+{
+  "meta": {
+    "profile": [
+      "https://demis.rki.de/fhir/StructureDefinition/ProcessNotificationSequenceRequestParameters"
+    ],
+    "lastUpdated": "2022-12-04T20:16:01.000+01:00"
+  },
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "bundle",
+      "resource": {
+        "id": "4",
+        "meta": {
+          "profile": [
+            "https://demis.rki.de/fhir/igs/StructureDefinition/NotificationBundleSequence"
+          ],
+          "lastUpdated": "2022-12-04T20:16:01.000+01:00"
+        },
+        "identifier": {
+          "system": "https://demis.rki.de/fhir/NamingSystem/NotificationBundleId",
+          "value": "f7e817c1-9f31-3319-8caa-e0a5668ece88"
+        },
+        "entry": [
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Composition/0f2d987c-fc34-3cc6-82c9-8250f7c6f0dd",
+            "resource": {
+              "identifier": {
+                "system": "https://demis.rki.de/fhir/NamingSystem/NotificationId",
+                "value": "d460d245-2353-4cad-ac45-c39d9418d6a6"
+              },
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/igs/StructureDefinition/NotificationSequence"
+                ]
+              },
+              "relatesTo": [
+                {
+                  "targetReference": {
+                    "identifier": {
+                      "system": "https://demis.rki.de/fhir/NamingSystem/NotificationId",
+                      "value": "3e013d5f-957c-4039-a971-fca482b85a9d"
+                    },
+                    "type": "Composition"
+                  },
+                  "code": "appends"
+                }
+              ],
+              "resourceType": "Composition",
+              "subject": {
+                "reference": "Patient/6f523a3c-0abb-3d67-8434-5cef9c93117d"
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://loinc.org",
+                      "display": "Laboratory report",
+                      "code": "11502-2"
+                    }
+                  ]
+                }
+              ],
+              "id": "0f2d987c-fc34-3cc6-82c9-8250f7c6f0dd",
+              "title": "Sequenzmeldung",
+              "date": "2022-12-04T20:16:00.000+01:00",
+              "section": [
+                {
+                  "entry": [
+                    {
+                      "reference": "DiagnosticReport/04dea166-95ce-3030-8cca-58832658702c"
+                    }
+                  ],
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://loinc.org",
+                        "display": "Laboratory report",
+                        "code": "11502-2"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "status": "final",
+              "type": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "display": "Infectious disease Note",
+                    "code": "34782-3"
+                  }
+                ]
+              },
+              "author": [
+                {
+                  "reference": "PractitionerRole/92762d45-28b4-3f63-9821-7dc14408ec85"
+                }
+              ]
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Patient/6f523a3c-0abb-3d67-8434-5cef9c93117d",
+            "resource": {
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/StructureDefinition/NotifiedPersonNotByName"
+                ]
+              },
+              "id": "6f523a3c-0abb-3d67-8434-5cef9c93117d",
+              "address": [
+                {
+                  "postalCode": "130",
+                  "extension": [
+                    {
+                      "valueCoding": {
+                        "system": "https://demis.rki.de/fhir/CodeSystem/addressUse",
+                        "code": "primary"
+                      },
+                      "url": "https://demis.rki.de/fhir/StructureDefinition/AddressUse"
+                    }
+                  ]
+                }
+              ],
+              "resourceType": "Patient",
+              "birthDate": "1978-11",
+              "gender": "male"
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/PractitionerRole/92762d45-28b4-3f63-9821-7dc14408ec85",
+            "resource": {
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/StructureDefinition/NotifierRole"
+                ]
+              },
+              "resourceType": "PractitionerRole",
+              "id": "92762d45-28b4-3f63-9821-7dc14408ec85",
+              "organization": {
+                "reference": "Organization/3df4b1aa-f4ae-3b42-b957-9ab8c1065e0f"
+              }
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Organization/3df4b1aa-f4ae-3b42-b957-9ab8c1065e0f",
+            "resource": {
+              "identifier": [
+                {
+                  "system": "https://demis.rki.de/fhir/NamingSystem/DemisLaboratoryId",
+                  "value": "12345"
+                },
+                {
+                  "system": "https://fhir.kbv.de/NamingSystem/KBV_NS_Base_BSNR",
+                  "value": "98765430"
+                }
+              ],
+              "telecom": [
+                {
+                  "value": "0309876543210",
+                  "use": "work",
+                  "system": "phone"
+                },
+                {
+                  "value": "0309876543211",
+                  "use": "work",
+                  "system": "fax"
+                },
+                {
+                  "value": "ifsg@sequenzierungslabor-gibt-es-nicht.de",
+                  "use": "work",
+                  "system": "email"
+                },
+                {
+                  "value": "http://sequenzierungslabor-gibt-es-nicht.de",
+                  "use": "work",
+                  "system": "url"
+                }
+              ],
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/StructureDefinition/NotifierFacility"
+                ]
+              },
+              "id": "3df4b1aa-f4ae-3b42-b957-9ab8c1065e0f",
+              "contact": [
+                {
+                  "name": {
+                    "use": "official",
+                    "family": "Kontakt",
+                    "given": [
+                      "Konrad"
+                    ]
+                  }
+                }
+              ],
+              "address": [
+                {
+                  "city": "Berlin",
+                  "postalCode": "13055",
+                  "country": "DE",
+                  "line": [
+                    "Dingsweg 321"
+                  ]
+                }
+              ],
+              "type": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://demis.rki.de/fhir/CodeSystem/organizationType",
+                      "display": "Erregerdiagnostische Untersuchungsstelle",
+                      "code": "laboratory"
+                    }
+                  ]
+                }
+              ],
+              "name": "Sequenzierungslabor",
+              "resourceType": "Organization"
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/PractitionerRole/5a0cfc4a-7c0f-3638-a470-86280aa123fe",
+            "resource": {
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/StructureDefinition/SubmittingRole"
+                ]
+              },
+              "resourceType": "PractitionerRole",
+              "id": "5a0cfc4a-7c0f-3638-a470-86280aa123fe",
+              "organization": {
+                "reference": "Organization/ad1f0d17-9016-3c12-884e-c9bd1d44be67"
+              }
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Organization/ad1f0d17-9016-3c12-884e-c9bd1d44be67",
+            "resource": {
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/StructureDefinition/SubmittingFacility"
+                ]
+              },
+              "id": "ad1f0d17-9016-3c12-884e-c9bd1d44be67",
+              "contact": [
+                {
+                  "name": {
+                    "use": "official",
+                    "family": "Kontakt",
+                    "given": [
+                      "Caroline"
+                    ]
+                  }
+                }
+              ],
+              "telecom": [
+                {
+                  "value": "03098765410",
+                  "use": "work",
+                  "system": "phone"
+                },
+                {
+                  "value": "03098765411",
+                  "use": "work",
+                  "system": "fax"
+                },
+                {
+                  "value": "ifsg@primaerlabor-gibt-es-nicht.de",
+                  "use": "work",
+                  "system": "email"
+                },
+                {
+                  "value": "http://primaerlabor-gibt-es-nicht.de",
+                  "use": "work",
+                  "system": "url"
+                }
+              ],
+              "address": [
+                {
+                  "city": "Berlin",
+                  "postalCode": "13055",
+                  "country": "DE",
+                  "line": [
+                    "Dingsweg 321"
+                  ]
+                }
+              ],
+              "resourceType": "Organization",
+              "name": "Primärlabor",
+              "identifier": [
+                {
+                  "system": "https://fhir.kbv.de/NamingSystem/KBV_NS_Base_BSNR",
+                  "value": "98765430"
+                }
+              ]
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/DiagnosticReport/04dea166-95ce-3030-8cca-58832658702c",
+            "resource": {
+              "conclusion": "NACHWEIS eines meldepflichtigen Erregers",
+              "result": [
+                {
+                  "reference": "Observation/3a0a430c-105c-301a-bf05-b926458cd362"
+                }
+              ],
+              "subject": {
+                "reference": "Patient/6f523a3c-0abb-3d67-8434-5cef9c93117d"
+              },
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/igs/StructureDefinition/LaboratoryReportSequence"
+                ]
+              },
+              "id": "04dea166-95ce-3030-8cca-58832658702c",
+              "conclusionCode": [
+                {
+                  "coding": [
+                    {
+                      "system": "https://demis.rki.de/fhir/CodeSystem/conclusionCode",
+                      "display": "Meldepflichtiger Erreger nachgewiesen",
+                      "code": "pathogenDetected"
+                    }
+                  ]
+                }
+              ],
+              "resourceType": "DiagnosticReport",
+              "status": "final",
+              "issued": "2022-12-04T20:15:00.000+01:00",
+              "code": {
+                "coding": [
+                  {
+                    "system": "https://demis.rki.de/fhir/CodeSystem/notificationCategory",
+                    "version": "1.13.2",
+                    "display": "Severe-Acute-Respiratory-Syndrome-Coronavirus-2 (SARS-CoV-2)",
+                    "code": "cvdp"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Observation/3a0a430c-105c-301a-bf05-b926458cd362",
+            "resource": {
+              "specimen": {
+                "reference": "Specimen/b57f4168-667e-39cb-81e6-c4fdcbba052c"
+              },
+              "resourceType": "Observation",
+              "subject": {
+                "reference": "Patient/6f523a3c-0abb-3d67-8434-5cef9c93117d"
+              },
+              "category": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                      "code": "laboratory"
+                    }
+                  ]
+                }
+              ],
+              "id": "3a0a430c-105c-301a-bf05-b926458cd362",
+              "interpretation": [
+                {
+                  "coding": [
+                    {
+                      "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation",
+                      "code": "POS"
+                    }
+                  ]
+                }
+              ],
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/igs/StructureDefinition/PathogenDetectionSequence"
+                ]
+              },
+              "valueString": "#BA.2",
+              "status": "final",
+              "derivedFrom": [
+                {
+                  "reference": "MolecularSequence/c638fb9b-422a-397a-81ef-0f9684182031"
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "version": "2.79",
+                    "display": "SARS-CoV-2 (COVID-19) variant Sequencing Nom (Specimen)",
+                    "code": "96741-4"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Specimen/b57f4168-667e-39cb-81e6-c4fdcbba052c",
+            "resource": {
+              "subject": {
+                "reference": "Patient/6f523a3c-0abb-3d67-8434-5cef9c93117d"
+              },
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/igs/StructureDefinition/SpecimenSequence"
+                ]
+              },
+              "receivedTime": "2022-12-04T15:40:00.000+01:00",
+              "processing": [
+                {
+                  "timeDateTime": "2022-12-04T16:40:00.000+01:00",
+                  "additive": [
+                    {
+                      "reference": "Substance/2bf4e39b-6190-3165-8ddd-add1113546be"
+                    }
+                  ],
+                  "description": "CVD_Artic_Protokoll_2.1",
+                  "procedure": {
+                    "coding": [
+                      {
+                        "system": "https://demis.rki.de/fhir/igs/CodeSystem/sequencingStrategy",
+                        "display": "Whole Genome Sequencing - random sequencing of the whole genome (see pubmed 10731132 for details)",
+                        "code": "wgs"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "id": "b57f4168-667e-39cb-81e6-c4fdcbba052c",
+              "collection": {
+                "collectedDateTime": "2022-12-04T09:50:00.000+01:00",
+                "collector": {
+                  "reference": "PractitionerRole/5a0cfc4a-7c0f-3638-a470-86280aa123fe"
+                }
+              },
+              "type": {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "version": "http://snomed.info/sct/11000274103/version/20241115",
+                    "display": "Nasopharyngeal swab (specimen)",
+                    "code": "258500001"
+                  }
+                ]
+              },
+              "resourceType": "Specimen",
+              "status": "available"
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Substance/2bf4e39b-6190-3165-8ddd-add1113546be",
+            "resource": {
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/igs/StructureDefinition/SequenceSubstance"
+                ]
+              },
+              "id": "2bf4e39b-6190-3165-8ddd-add1113546be",
+              "description": "Nextera XT",
+              "resourceType": "Substance",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://snomed.info/sct",
+                    "code": "105590001"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/Device/2f271108-d60e-3ef3-ba0a-e49ee620dcf5",
+            "resource": {
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/igs/StructureDefinition/SequencingDevice"
+                ]
+              },
+              "id": "2f271108-d60e-3ef3-ba0a-e49ee620dcf5",
+              "deviceName": [
+                {
+                  "type": "model-name",
+                  "name": "Illumina_HiSeq_4000"
+                }
+              ],
+              "resourceType": "Device",
+              "note": [
+                {
+                  "text": "Ein tolles Gerät"
+                }
+              ],
+              "type": {
+                "coding": [
+                  {
+                    "system": "https://demis.rki.de/fhir/igs/CodeSystem/sequencingPlatform",
+                    "display": "Illumina is 4-channel flowgram with 1-to-1 mapping between basecalls and flows",
+                    "code": "illumina"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "fullUrl": "https://demis.rki.de/fhir/igs/MolecularSequence/c638fb9b-422a-397a-81ef-0f9684182031",
+            "resource": {
+              "repository": [
+                {
+                  "url": "https://www.ebi.ac.uk/biosamples/samples/SAMEA9275312",
+                  "extension": [
+                    {
+                      "valueDateTime": "2023-01-01",
+                      "url": "https://demis.rki.de/fhir/igs/StructureDefinition/SequenceUploadDate"
+                    },
+                    {
+                      "valueString": "Vorname Nachname",
+                      "url": "https://demis.rki.de/fhir/igs/StructureDefinition/SequenceUploadSubmitter"
+                    },
+                    {
+                      "valueCoding": {
+                        "system": "http://snomed.info/sct",
+                        "code": "385645004"
+                      },
+                      "url": "https://demis.rki.de/fhir/igs/StructureDefinition/SequenceUploadStatus"
+                    }
+                  ],
+                  "type": "directlink",
+                  "datasetId": "SAMEA9275312",
+                  "name": "ena"
+                }
+              ],
+              "identifier": [
+                {
+                  "value": "20000149_lib29392_nextseq_n0254_151bp_cleaned_R1"
+                }
+              ],
+              "specimen": {
+                "reference": "Specimen/b57f4168-667e-39cb-81e6-c4fdcbba052c"
+              },
+              "extension": [
+                {
+                  "valueString": "Vorname Nachname",
+                  "url": "https://demis.rki.de/fhir/igs/StructureDefinition/SequenceAuthor"
+                },
+                {
+                  "valueCoding": {
+                    "system": "http://snomed.info/sct",
+                    "display": "Random (qualifier value)",
+                    "code": "255226008"
+                  },
+                  "url": "https://demis.rki.de/fhir/igs/StructureDefinition/SequencingReason"
+                },
+                {
+                  "valueReference": {
+                    "reference": "https://demis.rki.de/surveillance/notification-sequence/fhir/DocumentReference/ecd3f1f0-b6b6-46e0-b721-2d9869ab8195",
+                    "type": "DocumentReference"
+                  },
+                  "url": "https://demis.rki.de/fhir/igs/StructureDefinition/SequenceDocumentReference"
+                }
+              ],
+              "coordinateSystem": 0,
+              "meta": {
+                "profile": [
+                  "https://demis.rki.de/fhir/igs/StructureDefinition/Sequence"
+                ]
+              },
+              "id": "c638fb9b-422a-397a-81ef-0f9684182031",
+              "resourceType": "MolecularSequence",
+              "type": "dna",
+              "device": {
+                "reference": "Device/2f271108-d60e-3ef3-ba0a-e49ee620dcf5"
+              },
+              "performer": {
+                "reference": "Organization/3df4b1aa-f4ae-3b42-b957-9ab8c1065e0f"
+              }
+            }
+          }
+        ],
+        "type": "document",
+        "timestamp": "2022-12-04T20:16:01.000+01:00",
+        "resourceType": "Bundle"
+      }
+    }
+  ]
+}

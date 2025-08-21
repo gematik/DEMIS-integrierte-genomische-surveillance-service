@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 # Number of Pod Replicas desired
-replicaCount: 1
+replicaCount: 2
 
 # Enables debug mode
 debug:
@@ -58,6 +58,7 @@ customEnvVars:
   DEMIS_NETWORK_FHIR_STORAGE_WRITER_ADDRESS: "http://fhir-storage-writer.demis.svc.cluster.local"
   DEMIS_NETWORK_VALIDATION_SERVICE_ADDRESS: "http://validation-service.demis.svc.cluster.local"
   DEMIS_NETWORK_CONTENT_ENRICHMENT_SERVICE_ADDRESS: "http://context-enrichment-service.demis.svc.cluster.local"
+  FEATURE_FLAG_NEW_API_ENDPOINTS: "false"
 
 # Define custom Container Entrypoint and Arguments (e.g. JVM Tuning)
 # If not given, the Entrypoint defined in Dockerfile will be used

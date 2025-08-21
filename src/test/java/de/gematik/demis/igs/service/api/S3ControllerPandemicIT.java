@@ -103,6 +103,18 @@ class S3ControllerPandemicIT {
     registry.add("simple.storage.service.secret-key", () -> MINIO_ROOT_PASSWORD);
   }
 
+  private void startValidation(String documentId) throws Exception {
+    startValidation(documentId, false);
+  }
+
+  private void startValidation(String documentId, boolean fastAOnlyRule) throws Exception {
+    mockMvc
+        .perform(
+            post(S3_UPLOAD_VALIDATE.replace("{documentId}", documentId))
+                .header("Authorization", fastAOnlyRule ? TOKEN_FAST_A : TOKEN_NRZ))
+        .andExpect(status().isNoContent());
+  }
+
   @Nested
   class NotFastAOnly {
 
@@ -270,17 +282,5 @@ class S3ControllerPandemicIT {
                         .contains(ERROR_MESSAGE_FASTQ_SEND_BY_FASTA_USER);
               });
     }
-  }
-
-  private void startValidation(String documentId) throws Exception {
-    startValidation(documentId, false);
-  }
-
-  private void startValidation(String documentId, boolean fastAOnlyRule) throws Exception {
-    mockMvc
-        .perform(
-            post(S3_UPLOAD_VALIDATE.replace("{documentId}", documentId))
-                .header("Authorization", fastAOnlyRule ? TOKEN_FAST_A : TOKEN_NRZ))
-        .andExpect(status().isNoContent());
   }
 }

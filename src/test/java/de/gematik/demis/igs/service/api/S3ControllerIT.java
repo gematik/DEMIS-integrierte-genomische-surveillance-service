@@ -102,6 +102,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
@@ -136,6 +137,10 @@ public class S3ControllerIT {
           .withCommand("server /mnt/data");
 
   private final BaseUtil testUtil = new BaseUtil();
+
+  @Value("${igs.context-path}")
+  private String contextPath;
+
   @Autowired private SimpleStorageService storageService;
   @Autowired private MockMvc mockMvc;
 
@@ -464,7 +469,7 @@ public class S3ControllerIT {
       MvcResult result =
           mockMvc
               .perform(
-                  post(FHIR_DOCUMENT_REFERENCE_BASE)
+                  post(contextPath + FHIR_DOCUMENT_REFERENCE_BASE)
                       .contentType(APPLICATION_JSON)
                       .content(documentReference))
               .andReturn();

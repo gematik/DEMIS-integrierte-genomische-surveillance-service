@@ -48,7 +48,7 @@ import org.springframework.web.bind.annotation.RestController;
 @AllArgsConstructor
 public class NotificationController {
 
-  static final String FHIR_BUNDLE_BASE = "/fhir/$process-notification-sequence";
+  static final String FHIR_BUNDLE_BASE = "$process-notification-sequence";
   public final NotificationService service;
 
   /**
@@ -60,7 +60,7 @@ public class NotificationController {
    * @return a ResponseEntity containing the generated notification bundle
    */
   @PostMapping(
-      path = FHIR_BUNDLE_BASE,
+      path = "${igs.context-path}" + FHIR_BUNDLE_BASE,
       consumes = {
         APPLICATION_JSON_VALUE,
         APPLICATION_XML_VALUE,

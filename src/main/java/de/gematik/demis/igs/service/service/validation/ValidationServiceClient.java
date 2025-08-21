@@ -31,34 +31,29 @@ import static de.gematik.demis.igs.service.exception.ServiceCallErrorCode.VS;
 import de.gematik.demis.service.base.feign.annotations.ErrorCode;
 import feign.Response;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 
 @FeignClient(name = "validation-service", url = "${igs.validation.url}")
 public interface ValidationServiceClient {
-
-  default Response validateJsonBundle(String bundleAsJson) {
-    return validateJsonBundle("igs-profile-snapshots", bundleAsJson);
-  }
+  String HEADER_FHIR_API_VERSION = "x-fhir-api-version";
+  // Can be removed with FEATURE_FLAG_NEW_API_ENDPOINTS
+  String HEADER_FHIR_PROFILE_OLD = "fhirProfile";
+  String HEADER_FHIR_PROFILE = "x-fhir-profile";
 
   @PostMapping(
       value = "/$validate",
       consumes = MediaType.APPLICATION_JSON_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   @ErrorCode(VS)
-  Response validateJsonBundle(
-      @RequestHeader(value = "fhirProfile") String profile, String bundleAsJson);
-
-  default Response validateXmlBundle(String bundleAsXml) {
-    return validateXmlBundle("igs-profile-snapshots", bundleAsXml);
-  }
+  Response validateJsonBundle(@RequestHeader HttpHeaders headers, String bundleAsJson);
 
   @PostMapping(
       value = "/$validate",
       consumes = MediaType.APPLICATION_XML_VALUE,
       produces = MediaType.APPLICATION_JSON_VALUE)
   @ErrorCode(VS)
-  Response validateXmlBundle(
-      @RequestHeader(value = "fhirProfile") String profile, String bundleAsXml);
+  Response validateXmlBundle(@RequestHeader HttpHeaders headers, String bundleAsXml);
 }
