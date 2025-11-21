@@ -57,8 +57,8 @@ import de.gematik.demis.igs.service.exception.IgsValidationException;
 import de.gematik.demis.igs.service.service.fhir.FhirBundleOperationService;
 import de.gematik.demis.igs.service.service.fhir.FhirOperationOutcomeOperationService;
 import de.gematik.demis.igs.service.service.storage.S3StorageService;
+import de.gematik.demis.igs.service.utils.RequestHeaderProvider;
 import de.gematik.demis.service.base.error.ServiceCallException;
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,7 +101,7 @@ class NotificationValidatorServiceTest {
   @Mock FhirOperationOutcomeOperationService outcomeService;
   @Mock FhirBundleOperationService fhirBundleOperationService;
   @Mock S3StorageService s3StorageService;
-  @Mock HttpServletRequest httpServletRequest;
+  @Mock RequestHeaderProvider requestHeaderProvider;
   @Captor ArgumentCaptor<HttpHeaders> headerCaptor;
 
   @InjectMocks NotificationValidatorService underTest;
@@ -307,7 +307,7 @@ class NotificationValidatorServiceTest {
     void shouldCheckDocumentReferenceUrlWithVersionNumber() {
       underTest.setVersionHeaderForwardEnabled(true);
       Bundle bundle = testUtil.getDefaultBundle();
-      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
+      when(requestHeaderProvider.receiveApiVersionsFromRequest()).thenReturn(List.of(VERSION));
       when(s3StorageService.getMetadata(FIRST_DOCUMENT_REFERENCE_ID))
           .thenReturn(testUtil.determineMetadataForValid());
       when(fhirBundleOperationService.determineDocumentReferenceUrls(bundle))
@@ -320,7 +320,7 @@ class NotificationValidatorServiceTest {
     void shouldCheckDocumentReferenceUrlWithVersionNumberAndNoVersionNumberSuccessfully() {
       underTest.setVersionHeaderForwardEnabled(true);
       Bundle bundle = testUtil.getDefaultBundle();
-      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
+      when(requestHeaderProvider.receiveApiVersionsFromRequest()).thenReturn(List.of(VERSION));
       when(s3StorageService.getMetadata(FIRST_DOCUMENT_REFERENCE_ID))
           .thenReturn(testUtil.determineMetadataForValid());
       when(s3StorageService.getMetadata(SECOND_DOCUMENT_REFERENCE_ID))
@@ -335,7 +335,7 @@ class NotificationValidatorServiceTest {
     void shouldThrowExceptionIfOneDocumentReferenceWithoutVersionNumber() {
       underTest.setVersionHeaderForwardEnabled(true);
       Bundle bundle = testUtil.getDefaultBundle();
-      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
+      when(requestHeaderProvider.receiveApiVersionsFromRequest()).thenReturn(List.of(VERSION));
       when(fhirBundleOperationService.determineDocumentReferenceUrls(bundle))
           .thenReturn(
               List.of(VERSIONED_DOCUMENT_REFERENCE, VERSIONED_MALICIOUS_DOCUMENT_REFERENCE));
@@ -356,8 +356,8 @@ class NotificationValidatorServiceTest {
       underTest.setVersionHeaderForwardEnabled(true);
       String bundleString = testUtil.getDefaultBundleAsString();
       String profile = "igs-profile-snapshots";
-      when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION)).thenReturn(VERSION);
-      when(httpServletRequest.getHeader(HEADER_FHIR_PROFILE)).thenReturn(profile);
+      when(requestHeaderProvider.receiveApiVersionsFromRequest()).thenReturn(List.of(VERSION));
+      when(requestHeaderProvider.receiveFhirProfileFromRequest()).thenReturn(List.of(profile));
       when(client.validateJsonBundle(any(), eq(bundleString)))
           .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
 
@@ -379,6 +379,8 @@ class NotificationValidatorServiceTest {
     void shouldUseDefaultIfNoHeaderSet() {
       underTest.setVersionHeaderForwardEnabled(true);
       String bundleString = testUtil.getDefaultBundleAsString();
+      when(requestHeaderProvider.receiveApiVersionsFromRequest()).thenReturn(null);
+      when(requestHeaderProvider.receiveFhirProfileFromRequest()).thenReturn(null);
       when(client.validateJsonBundle(any(), eq(bundleString)))
           .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
       underTest.validateFhir(bundleString, APPLICATION_JSON);

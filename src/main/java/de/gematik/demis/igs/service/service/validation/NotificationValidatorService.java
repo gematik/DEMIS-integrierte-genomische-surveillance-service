@@ -37,7 +37,6 @@ import static de.gematik.demis.igs.service.service.validation.ValidationServiceC
 import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE;
 import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE_OLD;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
-import static java.util.Optional.ofNullable;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 import de.gematik.demis.igs.service.exception.ErrorCode;
@@ -47,18 +46,16 @@ import de.gematik.demis.igs.service.service.fhir.FhirBundleOperationService;
 import de.gematik.demis.igs.service.service.fhir.FhirOperationOutcomeOperationService;
 import de.gematik.demis.igs.service.service.storage.SimpleStorageService;
 import de.gematik.demis.igs.service.utils.Constants;
+import de.gematik.demis.igs.service.utils.RequestHeaderProvider;
 import de.gematik.demis.service.base.error.ServiceCallException;
 import feign.Response;
 import feign.codec.Decoder;
 import feign.codec.StringDecoder;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -85,7 +82,7 @@ public class NotificationValidatorService {
   private final FhirOperationOutcomeOperationService outcomeService;
   private final FhirBundleOperationService fhirBundleOperationService;
   private final SimpleStorageService storageService;
-  private final HttpServletRequest httpServletRequest;
+  private final RequestHeaderProvider headerProvider;
 
   @Value("${igs.demis.external-url}")
   @Setter
@@ -94,25 +91,6 @@ public class NotificationValidatorService {
   @Setter
   @Value("${feature.flag.new_api_endpoints}")
   private boolean isVersionHeaderForwardEnabled;
-
-  private List<String> getDownloadEndpoints() {
-    ArrayList<String> validEndpoints = new ArrayList<>();
-    validEndpoints.add(
-        demisExternalUrl
-            + CLUSTER_INTERNAL_IGS_URI_PREFIX.replace("%s", "")
-            + FHIR_DOCUMENT_REFERENCE_BASE);
-    List<String> versions = headersFromRequestByName(HEADER_FHIR_API_VERSION);
-    if (Objects.nonNull(versions)) {
-      versions.stream()
-          .map(
-              v ->
-                  demisExternalUrl
-                      + CLUSTER_INTERNAL_IGS_URI_PREFIX.replace("%s", "/" + v)
-                      + FHIR_DOCUMENT_REFERENCE_BASE)
-          .forEach(validEndpoints::add);
-    }
-    return validEndpoints;
-  }
 
   /**
    * Validates a FHIR bundle if feature flag is enabled
@@ -148,16 +126,14 @@ public class NotificationValidatorService {
     throw new IgsValidationException(errorCode, operationOutcome);
   }
 
-  private @Nullable List<String> headersFromRequestByName(@Nonnull String headerName) {
-    return ofNullable(httpServletRequest.getHeader(headerName)).map(List::of).orElse(null);
-  }
-
   private Response getValidationResponse(String content, MediaType mediaType) {
     final HttpHeaders headers = new HttpHeaders();
 
     if (isVersionHeaderForwardEnabled) {
-      headers.computeIfAbsent(HEADER_FHIR_API_VERSION, this::headersFromRequestByName);
-      headers.computeIfAbsent(HEADER_FHIR_PROFILE, this::headersFromRequestByName);
+      headers.computeIfAbsent(
+          HEADER_FHIR_API_VERSION, v -> headerProvider.receiveApiVersionsFromRequest());
+      headers.computeIfAbsent(
+          HEADER_FHIR_PROFILE, v -> headerProvider.receiveFhirProfileFromRequest());
     }
     headers.computeIfAbsent(HEADER_FHIR_PROFILE_OLD, ignored -> List.of("igs-profile-snapshots"));
 
@@ -202,6 +178,25 @@ public class NotificationValidatorService {
     documentReferenceUrls.stream()
         .map(this::extractDocumentReferenceId)
         .forEach(this::ensureSequenceDataHasBeenValidated);
+  }
+
+  private List<String> getDownloadEndpoints() {
+    ArrayList<String> validEndpoints = new ArrayList<>();
+    validEndpoints.add(
+        demisExternalUrl
+            + CLUSTER_INTERNAL_IGS_URI_PREFIX.replace("%s", "")
+            + FHIR_DOCUMENT_REFERENCE_BASE);
+    List<String> versions = headerProvider.receiveApiVersionsFromRequest();
+    if (Objects.nonNull(versions)) {
+      versions.stream()
+          .map(
+              v ->
+                  demisExternalUrl
+                      + CLUSTER_INTERNAL_IGS_URI_PREFIX.replace("%s", "/" + v)
+                      + FHIR_DOCUMENT_REFERENCE_BASE)
+          .forEach(validEndpoints::add);
+    }
+    return validEndpoints;
   }
 
   private String extractDocumentReferenceId(String documentReferenceUrl) {

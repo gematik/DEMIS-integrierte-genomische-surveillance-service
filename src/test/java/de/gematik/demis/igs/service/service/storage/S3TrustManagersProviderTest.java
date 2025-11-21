@@ -53,7 +53,6 @@ class S3TrustManagersProviderTest {
         new String(
             Objects.requireNonNull(getClass().getResourceAsStream("/certs/singleCert"))
                 .readAllBytes());
-    when(s3configuration.getStorageTlsCertificate()).thenReturn(singleCert);
     when(s3configuration.getStorageTlsCertificateInternal()).thenReturn(singleCert);
     S3TrustManagersProvider provider = new S3TrustManagersProvider(s3configuration);
     checkTrustManagerHaveExpectedAmountOfTrustedCerts(provider, 1);
@@ -66,7 +65,6 @@ class S3TrustManagersProviderTest {
         new String(
             Objects.requireNonNull(getClass().getResourceAsStream("/certs/multipleCerts"))
                 .readAllBytes());
-    when(s3configuration.getStorageTlsCertificate()).thenReturn(singleCert);
     when(s3configuration.getStorageTlsCertificateInternal()).thenReturn(singleCert);
     S3TrustManagersProvider provider = new S3TrustManagersProvider(s3configuration);
     checkTrustManagerHaveExpectedAmountOfTrustedCerts(provider, 6);
@@ -79,7 +77,6 @@ class S3TrustManagersProviderTest {
         new String(
             Objects.requireNonNull(getClass().getResourceAsStream("/certs/oneValidOneInvalidCert"))
                 .readAllBytes());
-    when(s3configuration.getStorageTlsCertificate()).thenReturn(singleCert);
     when(s3configuration.getStorageTlsCertificateInternal()).thenReturn(singleCert);
     S3TrustManagersProvider provider = new S3TrustManagersProvider(s3configuration);
     checkTrustManagerHaveExpectedAmountOfTrustedCerts(provider, 1);
@@ -92,7 +89,7 @@ class S3TrustManagersProviderTest {
         new String(
             Objects.requireNonNull(getClass().getResourceAsStream("/certs/invalidCert"))
                 .readAllBytes());
-    when(s3configuration.getStorageTlsCertificate()).thenReturn(singleCert);
+    when(s3configuration.getStorageTlsCertificateInternal()).thenReturn(singleCert);
     S3TrustManagersProvider provider = new S3TrustManagersProvider(s3configuration);
     assertThatThrownBy(provider::trustManagers).isInstanceOf(ServiceException.class);
   }
