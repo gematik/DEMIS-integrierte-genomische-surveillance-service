@@ -82,11 +82,11 @@ public class S3TrustManagersProvider implements TlsTrustManagersProvider {
   }
 
   private void loadTrustedCertsToTruststore(KeyStore truststore) throws CertificateException {
-    addCertificatesToTruststore(s3configuration.getStorageTlsCertificate(), truststore);
-    addCertificatesToTruststore(s3configuration.getStorageTlsCertificateInternal(), truststore);
+    addCertificatesToTruststore(
+        s3configuration.getStorageTlsCertificateInternal(), truststore, "internal");
   }
 
-  private void addCertificatesToTruststore(String base64KeyChain, KeyStore truststore)
+  private void addCertificatesToTruststore(String base64KeyChain, KeyStore truststore, String type)
       throws CertificateException {
     String certFile = new String(Base64.getDecoder().decode(base64KeyChain.replaceAll("\\s", "")));
     int occurrences = certFile.split("\\b" + END_CERTIFICATE + "\\b", -1).length - 1;
@@ -98,7 +98,7 @@ public class S3TrustManagersProvider implements TlsTrustManagersProvider {
       while (is.available() > 0) {
         try {
           Certificate cert = cf.generateCertificate(is);
-          String alias = CERTIFICATE_ALIAS + certIndex++;
+          String alias = type + CERTIFICATE_ALIAS + certIndex++;
           truststore.setCertificateEntry(alias, cert);
         } catch (Exception ex) {
           ++errors;

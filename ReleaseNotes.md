@@ -2,6 +2,10 @@
 
 # Release Notes IGS-Service
 
+## Release 1.3.1
+- Location header for document reference now contains the versioned endpoint
+- Removed unneeded external storage certificate property
+
 ## Release 1.3.0
 - add feature flag FEATURE_FLAG_NEW_API_ENDPOINTS for header propagation of x-fhir-api-version and fhirProfile to validation-service
 - add new versioned API endpoints

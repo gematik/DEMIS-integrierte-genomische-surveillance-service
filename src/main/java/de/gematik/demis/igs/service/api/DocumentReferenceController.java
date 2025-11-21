@@ -27,6 +27,7 @@ package de.gematik.demis.igs.service.api;
  */
 
 import static de.gematik.demis.igs.service.utils.ErrorMessages.WRONG_PATH_DELIVERED_ERROR_MSG;
+import static java.util.Objects.isNull;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
@@ -34,7 +35,9 @@ import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 import de.gematik.demis.igs.service.parser.FhirContentTypeMapper;
 import de.gematik.demis.igs.service.parser.FhirParser;
 import de.gematik.demis.igs.service.service.DocumentReferenceService;
+import de.gematik.demis.igs.service.utils.RequestHeaderProvider;
 import java.net.URI;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.DocumentReference;
@@ -60,13 +63,15 @@ public class DocumentReferenceController {
 
   public static final String DOCUMENT_ID_PATH_VARIABLE = "documentId";
   public static final String FHIR_DOCUMENT_REFERENCE_BASE = "DocumentReference";
+  public static final String FHIR_PREFIX = "/fhir/";
   private static final String DOCUMENT_REFERENCE_PATH = "DocumentReference.content.attachment";
   private static final String PATH_DOCUMENT_ID = "/{" + DOCUMENT_ID_PATH_VARIABLE + "}";
   static final String FHIR_DOCUMENT_REFERENCE = FHIR_DOCUMENT_REFERENCE_BASE + PATH_DOCUMENT_ID;
   static final String FHIR_DOCUMENT_REFERENCE_BINARY_READ =
       FHIR_DOCUMENT_REFERENCE + "/$binary-access-read";
-  public static final String FHIR_PREFIX = "/fhir/";
   private final DocumentReferenceService documentReferenceService;
+  private final RequestHeaderProvider headerProvider;
+  private final RequestHeaderProvider requestHeaderProvider;
 
   /**
    * Generates a DocumentReference based on the provided content and media type
@@ -94,12 +99,22 @@ public class DocumentReferenceController {
     MediaType fhirMediaType = FhirContentTypeMapper.map(mediaType.toString());
     DocumentReference documentReference =
         documentReferenceService.generateDocumentReference(content, fhirMediaType);
-
-    return ResponseEntity.created(
-            URI.create(
-                FHIR_PREFIX + FHIR_DOCUMENT_REFERENCE_BASE + "/" + documentReference.getId()))
+    URI locationUri = createLocationUri(documentReference);
+    return ResponseEntity.created(locationUri)
         .header(CONTENT_TYPE, mediaType.toString())
         .body(FhirParser.serializeResource(documentReference, fhirMediaType));
+  }
+
+  private URI createLocationUri(DocumentReference documentReference) {
+    List<String> versions = requestHeaderProvider.receiveApiVersionsFromRequest();
+    String versionPrefix =
+        (isNull(versions) || versions.isEmpty()) ? "" : ("/" + versions.getFirst());
+    return URI.create(
+        versionPrefix
+            + FHIR_PREFIX
+            + FHIR_DOCUMENT_REFERENCE_BASE
+            + "/"
+            + documentReference.getId());
   }
 
   @GetMapping(

@@ -53,7 +53,6 @@ public class SimpleStorageServiceConfiguration {
   private long multipartMaxUploadSizeInBytes;
   private long multipartUploadChunkSizeInBytes;
   private int signedUrlExpirationInMinutes;
-  private String storageTlsCertificate;
   private String storageTlsCertificateInternal;
   private boolean skipTrustStoreCreation;
 

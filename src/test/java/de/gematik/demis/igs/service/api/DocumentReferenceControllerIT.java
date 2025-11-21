@@ -28,6 +28,7 @@ package de.gematik.demis.igs.service.api;
 
 import static de.gematik.demis.igs.service.api.DocumentReferenceController.FHIR_DOCUMENT_REFERENCE_BASE;
 import static de.gematik.demis.igs.service.api.DocumentReferenceController.FHIR_DOCUMENT_REFERENCE_BINARY_READ;
+import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
 import static de.gematik.demis.igs.service.utils.Constants.HASH_METADATA_NAME;
 import static de.gematik.demis.igs.service.utils.Constants.UPLOAD_STATUS;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
@@ -92,9 +93,8 @@ import util.BaseUtil;
 class DocumentReferenceControllerIT {
 
   public static final String PREFIX = "/fhir/DocumentReference/";
-  public static final Pattern LOCATION_PATTERN =
-      Pattern.compile(
-          PREFIX + "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+  public static final String UUID_REGEX =
+      "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
   private static final String LOCATION_HEADER = "location";
 
   private static final FhirContext contextR4 = FhirContext.forR4Cached();
@@ -190,7 +190,11 @@ class DocumentReferenceControllerIT {
                       .contentType(contentType)
                       .content(documentReferenceRequest))
               .andExpect(status().isCreated())
-              .andExpect(header().string(LOCATION_HEADER, new MatchesPattern(LOCATION_PATTERN)))
+              .andExpect(
+                  header()
+                      .string(
+                          LOCATION_HEADER,
+                          new MatchesPattern(Pattern.compile(PREFIX + UUID_REGEX))))
               .andExpect(header().string(CONTENT_TYPE, new StringStartsWith(contentType)))
               .andReturn()
               .getResponse();
@@ -232,7 +236,11 @@ class DocumentReferenceControllerIT {
                       .contentType(APPLICATION_XML_VALUE)
                       .content(documentReferenceRequest))
               .andExpect(status().isCreated())
-              .andExpect(header().string(LOCATION_HEADER, new MatchesPattern(LOCATION_PATTERN)))
+              .andExpect(
+                  header()
+                      .string(
+                          LOCATION_HEADER,
+                          new MatchesPattern(Pattern.compile(PREFIX + UUID_REGEX))))
               .andExpect(header().string(CONTENT_TYPE, new StringStartsWith(APPLICATION_XML_VALUE)))
               .andReturn()
               .getResponse();
@@ -297,17 +305,25 @@ class DocumentReferenceControllerIT {
     }
 
     @Test
-    void shouldCreateDocumentReferenceWithContextPath() throws Exception {
+    void shouldCreateDocumentReferenceWithContextPathAndApiVersion() throws Exception {
+      String apiVersion = "v4";
       String documentReferenceRequest =
           testUtil.generateDocumentReferenceJsonForFile(PATH_TO_DOCUMENT_REFERENCE_JSON);
+
       MockHttpServletResponse response =
           mockMvc
               .perform(
                   post(FHIR_DOCUMENT_REFERENCE_BASE_URL)
                       .contentType(APPLICATION_JSON_VALUE)
+                      .header(HEADER_FHIR_API_VERSION, apiVersion)
                       .content(documentReferenceRequest))
               .andExpect(status().isCreated())
-              .andExpect(header().string(LOCATION_HEADER, new MatchesPattern(LOCATION_PATTERN)))
+              .andExpect(
+                  header()
+                      .string(
+                          LOCATION_HEADER,
+                          new MatchesPattern(
+                              Pattern.compile("/" + apiVersion + PREFIX + UUID_REGEX))))
               .andExpect(
                   header().string(CONTENT_TYPE, new StringStartsWith(APPLICATION_JSON_VALUE)))
               .andReturn()
