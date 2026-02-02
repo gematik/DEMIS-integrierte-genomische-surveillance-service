@@ -32,7 +32,6 @@ config:
       # The name of the (external) Secret for IGS and the entries to be used and mapped
       name: igs-secret
       entries:
-        S3_STORAGE_TLS_CERTIFICATE: S3_STORAGE_TLS_CERTIFICATE
         S3_STORAGE_TLS_CERTIFICATE_INTERNAL: S3_STORAGE_TLS_CERTIFICATE_INTERNAL
     minio:
       # The name of the (external) Secret for MinIO and the entries to be used and mapped
@@ -133,8 +132,8 @@ resources:
   limits:
     memory: "500Mi"
   requests:
-    cpu: "1000m"
-    memory: "500Mi"
+    cpu: "300m"
+    memory: "256Mi"
 
 autoscaling:
   enabled: false
