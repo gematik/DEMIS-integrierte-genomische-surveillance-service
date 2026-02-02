@@ -4,7 +4,7 @@ package de.gematik.demis.igs.service.api;
  * #%L
  * Integrierte-Genomische-Surveillance-Service
  * %%
- * Copyright (C) 2025 gematik GmbH
+ * Copyright (C) 2025 - 2026 gematik GmbH
  * %%
  * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
  * European Commission – subsequent versions of the EUPL (the "Licence").
@@ -22,7 +22,8 @@ package de.gematik.demis.igs.service.api;
  *
  * *******
  *
- * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
+ * For additional notes and disclaimer from gematik and in case of changes by gematik,
+ * find details in the "Readme" file.
  * #L%
  */
 
@@ -49,6 +50,7 @@ import static org.springframework.http.MediaType.APPLICATION_XML;
 import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION_JSON;
@@ -284,7 +286,10 @@ class NotificationControllerIT {
                   .contentType(APPLICATION_XML_VALUE)
                   .accept(APPLICATION_JSON)
                   .content(notification))
-          .andExpect(status().isBadRequest());
+          .andExpect(status().isBadRequest())
+          .andExpect(
+              jsonPath("$.detail")
+                  .value("The lab sequence ID must be a 5-digit number, but found: DEMIS-10285"));
     }
 
     @Test

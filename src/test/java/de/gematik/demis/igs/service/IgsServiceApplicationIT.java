@@ -4,7 +4,7 @@ package de.gematik.demis.igs.service;
  * #%L
  * Integrierte-Genomische-Surveillance-Service
  * %%
- * Copyright (C) 2025 gematik GmbH
+ * Copyright (C) 2025 - 2026 gematik GmbH
  * %%
  * Licensed under the EUPL, Version 1.2 or - as soon they will be approved by the
  * European Commission – subsequent versions of the EUPL (the "Licence").
@@ -22,10 +22,13 @@ package de.gematik.demis.igs.service;
  *
  * *******
  *
- * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
+ * For additional notes and disclaimer from gematik and in case of changes by gematik,
+ * find details in the "Readme" file.
  * #L%
  */
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.springframework.boot.test.context.SpringBootTest.WebEnvironment.RANDOM_PORT;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
@@ -47,5 +51,15 @@ class IgsServiceApplicationIT {
   @SneakyThrows
   void shouldStartWithoutAsStandalone() {
     mvc.perform(get("/actuator/health")).andExpect(status().isOk());
+  }
+
+  @Test
+  @SneakyThrows
+  void shouldNotStartWithEmptyCertProfile() {
+    SpringApplication app = new SpringApplication(IgsServiceApplication.class);
+    app.setAdditionalProfiles("empty_cert");
+
+    Exception ex = assertThrows(Exception.class, app::run);
+    assertThat(ex.getMessage()).contains("Error while creating truststore");
   }
 }

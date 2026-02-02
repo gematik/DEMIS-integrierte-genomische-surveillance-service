@@ -1,6 +1,11 @@
-<img align="right" alt="gematik" width="250" height="47" src="media/Gematik_Logo_Flag.png"/> <br/>    
+<div style="text-align:right"><img src="https://raw.githubusercontent.com/gematik/gematik.github.io/master/Gematik_Logo_Flag_With_Background.png" width="250" height="47" alt="gematik GmbH Logo"/> <br/> </div> <br/>    
 
 # Release Notes IGS-Service
+
+## Release 1.3.2
+- Updated dependencies
+- Sequence data up to 2GB now allowed
+- Adjust requested resources
 
 ## Release 1.3.1
 - Location header for document reference now contains the versioned endpoint

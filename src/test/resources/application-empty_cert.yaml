@@ -1,0 +1,4 @@
+simple:
+  storage:
+    service:
+      storage-tls-certificate-internal: ""
