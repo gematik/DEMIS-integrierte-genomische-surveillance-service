@@ -89,10 +89,6 @@ public class NotificationValidatorService {
   @Setter
   private String demisExternalUrl;
 
-  @Setter
-  @Value("${feature.flag.new_api_endpoints}")
-  private boolean isVersionHeaderForwardEnabled;
-
   /**
    * Validates a FHIR bundle if feature flag is enabled
    *
@@ -130,11 +126,13 @@ public class NotificationValidatorService {
   private Response getValidationResponse(String content, MediaType mediaType) {
     final HttpHeaders headers = new HttpHeaders();
 
-    if (isVersionHeaderForwardEnabled) {
-      headers.computeIfAbsent(
-          HEADER_FHIR_API_VERSION, v -> headerProvider.receiveApiVersionsFromRequest());
-      headers.computeIfAbsent(
-          HEADER_FHIR_PROFILE, v -> headerProvider.receiveFhirProfileFromRequest());
+    final List<String> apiVersion = headerProvider.receiveApiVersionsFromRequest();
+    final List<String> fhirProfile = headerProvider.receiveFhirProfileFromRequest();
+    if (apiVersion != null && !apiVersion.isEmpty()) {
+      headers.putIfAbsent(HEADER_FHIR_API_VERSION, apiVersion);
+    }
+    if (fhirProfile != null && !fhirProfile.isEmpty()) {
+      headers.putIfAbsent(HEADER_FHIR_PROFILE, fhirProfile);
     }
     headers.computeIfAbsent(HEADER_FHIR_PROFILE_OLD, ignored -> List.of("igs-profile-snapshots"));
 
