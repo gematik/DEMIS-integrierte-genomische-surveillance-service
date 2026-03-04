@@ -23,7 +23,7 @@ This project includes:
   Apache Commons Lang under Apache-2.0
   Apache Commons Logging under Apache-2.0
   Apache Commons Net under Apache License, Version 2.0
-  Apache Commons Text under Apache License, Version 2.0
+  Apache Commons Text under Apache-2.0
   Apache HttpClient under Apache License, Version 2.0
   Apache HttpComponents Core HTTP/1.1 under Apache License, Version 2.0
   Apache HttpComponents Core HTTP/2 under Apache License, Version 2.0
