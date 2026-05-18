@@ -63,15 +63,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class DocumentReferenceController {
 
   public static final String DOCUMENT_ID_PATH_VARIABLE = "documentId";
-  public static final String FHIR_DOCUMENT_REFERENCE_BASE = "DocumentReference";
-  public static final String FHIR_PREFIX = "/fhir/";
+  public static final String FHIR_DOCUMENT_REFERENCE_BASE = "/DocumentReference";
+  public static final String FHIR_PREFIX = "/fhir";
   private static final String DOCUMENT_REFERENCE_PATH = "DocumentReference.content.attachment";
   private static final String PATH_DOCUMENT_ID = "/{" + DOCUMENT_ID_PATH_VARIABLE + "}";
   static final String FHIR_DOCUMENT_REFERENCE = FHIR_DOCUMENT_REFERENCE_BASE + PATH_DOCUMENT_ID;
   static final String FHIR_DOCUMENT_REFERENCE_BINARY_READ =
       FHIR_DOCUMENT_REFERENCE + "/$binary-access-read";
   private final DocumentReferenceService documentReferenceService;
-  private final RequestHeaderProvider headerProvider;
   private final RequestHeaderProvider requestHeaderProvider;
 
   /**
@@ -82,7 +81,7 @@ public class DocumentReferenceController {
    * @return a ResponseEntity containing the generated DocumentReference
    */
   @PostMapping(
-      path = "${igs.context-path}" + FHIR_DOCUMENT_REFERENCE_BASE,
+      path = FHIR_DOCUMENT_REFERENCE_BASE,
       consumes = {
         APPLICATION_JSON_VALUE,
         APPLICATION_XML_VALUE,
@@ -119,7 +118,7 @@ public class DocumentReferenceController {
   }
 
   @GetMapping(
-      path = "${igs.context-path}" + FHIR_DOCUMENT_REFERENCE_BINARY_READ,
+      path = FHIR_DOCUMENT_REFERENCE_BINARY_READ,
       produces = {MimeTypeUtils.APPLICATION_OCTET_STREAM_VALUE})
   public ResponseEntity<InputStreamResource> getBinary(
       @PathVariable(name = DOCUMENT_ID_PATH_VARIABLE) String documentId,

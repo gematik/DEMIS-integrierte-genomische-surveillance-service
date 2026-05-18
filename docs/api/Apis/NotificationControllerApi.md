@@ -4,7 +4,7 @@ All URIs are relative to *http://localhost*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
-| [**saveNotificationBundle**](NotificationControllerApi.md#saveNotificationBundle) | **POST** /fhir/$process-notification-sequence |  |
+| [**saveNotificationBundle**](NotificationControllerApi.md#saveNotificationBundle) | **POST** /$process-notification-sequence |  |
 
 
 <a name="saveNotificationBundle"></a>

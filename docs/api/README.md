@@ -7,9 +7,9 @@ All URIs are relative to *http://localhost*
 
 | Class | Method | HTTP request | Description |
 |------------ | ------------- | ------------- | -------------|
-| *DocumentReferenceControllerApi* | [**generateDocumentReference**](Apis/DocumentReferenceControllerApi.md#generateDocumentReference) | **POST** /fhir/DocumentReference |  |
-*DocumentReferenceControllerApi* | [**getBinary**](Apis/DocumentReferenceControllerApi.md#getBinary) | **GET** /fhir/DocumentReference/{documentId}/$binary-access-read |  |
-| *NotificationControllerApi* | [**saveNotificationBundle**](Apis/NotificationControllerApi.md#saveNotificationBundle) | **POST** /fhir/$process-notification-sequence |  |
+| *DocumentReferenceControllerApi* | [**generateDocumentReference**](Apis/DocumentReferenceControllerApi.md#generateDocumentReference) | **POST** /DocumentReference |  |
+*DocumentReferenceControllerApi* | [**getBinary**](Apis/DocumentReferenceControllerApi.md#getBinary) | **GET** /DocumentReference/{documentId}/$binary-access-read |  |
+| *NotificationControllerApi* | [**saveNotificationBundle**](Apis/NotificationControllerApi.md#saveNotificationBundle) | **POST** /$process-notification-sequence |  |
 | *S3ControllerApi* | [**determineUploadInfo**](Apis/S3ControllerApi.md#determineUploadInfo) | **GET** /S3Controller/upload/{documentId}/s3-upload-info |  |
 *S3ControllerApi* | [**finishUpload**](Apis/S3ControllerApi.md#finishUpload) | **POST** /S3Controller/upload/{documentId}/$finish-upload |  |
 *S3ControllerApi* | [**initiateValidation**](Apis/S3ControllerApi.md#initiateValidation) | **POST** /S3Controller/upload/{documentId}/$validate |  |

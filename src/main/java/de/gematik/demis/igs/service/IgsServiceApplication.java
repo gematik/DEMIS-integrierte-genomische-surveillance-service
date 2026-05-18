@@ -38,7 +38,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 public class IgsServiceApplication {
 
-  public static void main(String[] args) {
+  static void main(String[] args) {
     SpringApplication.run(IgsServiceApplication.class, args);
   }
 }

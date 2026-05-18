@@ -29,17 +29,12 @@ package de.gematik.demis.igs.service.api;
 
 import static de.gematik.demis.igs.service.api.NotificationController.FHIR_BUNDLE_BASE;
 import static de.gematik.demis.igs.service.parser.FhirParser.deserializeResource;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE_OLD;
 import static de.gematik.demis.igs.service.utils.Constants.PROCESS_NOTIFICATION_RESPONSE_PROFILE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.ERROR;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.INFORMATION;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -61,7 +56,6 @@ import de.gematik.demis.igs.service.service.storage.S3StorageService;
 import de.gematik.demis.igs.service.service.validation.ValidationServiceClient;
 import de.gematik.demis.service.base.error.ServiceCallException;
 import feign.Response;
-import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import lombok.SneakyThrows;
@@ -73,13 +67,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -101,21 +91,16 @@ class NotificationControllerIT {
   class NotificationController_DEFAULT {
 
     @Autowired MockMvc mockMvc;
-    @Captor ArgumentCaptor<HttpHeaders> headerCaptor;
     @MockitoBean private ValidationServiceClient validationClient;
     @MockitoBean private FhirStorageWriterClient fhirStorageWriterClient;
     @MockitoBean private S3StorageService s3StorageService;
-
-    @Value("${igs.context-path}")
-    private String contextPath;
 
     @ParameterizedTest
     @ValueSource(strings = {APPLICATION_OCTET_STREAM_VALUE, APPLICATION_PDF_VALUE, ""})
     void shouldReturn415IfWrongContentType(String contentType) throws Exception {
       String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
       mockMvc
-          .perform(
-              post(contextPath + FHIR_BUNDLE_BASE).contentType(contentType).content(notification))
+          .perform(post(FHIR_BUNDLE_BASE).contentType(contentType).content(notification))
           .andExpect(status().isUnsupportedMediaType());
     }
 
@@ -125,7 +110,7 @@ class NotificationControllerIT {
       String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
       mockMvc
           .perform(
-              post(contextPath + FHIR_BUNDLE_BASE)
+              post(FHIR_BUNDLE_BASE)
                   .contentType(APPLICATION_JSON)
                   .accept(contentType)
                   .content(notification))
@@ -135,7 +120,7 @@ class NotificationControllerIT {
     @Test
     @SneakyThrows
     void shouldUploadNotificationSuccessfully() {
-      when(validationClient.validateXmlBundle(any(), anyString()))
+      when(validationClient.validateXmlBundle(anyString()))
           .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
       when(fhirStorageWriterClient.sendNotification(anyString()))
           .thenReturn(ResponseEntity.ok().build());
@@ -147,7 +132,7 @@ class NotificationControllerIT {
       MockHttpServletResponse response =
           mockMvc
               .perform(
-                  post(contextPath + FHIR_BUNDLE_BASE)
+                  post(FHIR_BUNDLE_BASE)
                       .contentType(APPLICATION_XML_VALUE)
                       .accept(APPLICATION_JSON)
                       .content(notification))
@@ -186,29 +171,21 @@ class NotificationControllerIT {
           () ->
               assertThat(((Identifier) labSequenceID.orElseThrow().getValue()).getValue())
                   .isEqualTo("A384"),
-          () ->
-              verify(validationClient).validateXmlBundle(headerCaptor.capture(), eq(notification)),
-          () ->
-              assertThat(headerCaptor.getValue())
-                  .isNotNull()
-                  .hasSize(1)
-                  .containsKey(HEADER_FHIR_PROFILE_OLD)
-                  .extractingByKey(HEADER_FHIR_PROFILE_OLD)
-                  .isEqualTo(List.of("igs-profile-snapshots")));
+          () -> verify(validationClient).validateXmlBundle(notification));
     }
 
     @Test
     @SneakyThrows
     void shouldReturn422WithOperationOutputInBodyIfValidationFailed() {
       Response outcomeResponse = baseUtil.createOutcomeResponse(ERROR);
-      when(validationClient.validateXmlBundle(any(), anyString())).thenReturn(outcomeResponse);
+      when(validationClient.validateXmlBundle(anyString())).thenReturn(outcomeResponse);
       when(fhirStorageWriterClient.sendNotification(anyString()))
           .thenReturn(ResponseEntity.ok().build());
       String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
       MockHttpServletResponse response =
           mockMvc
               .perform(
-                  post(contextPath + FHIR_BUNDLE_BASE)
+                  post(FHIR_BUNDLE_BASE)
                       .contentType(APPLICATION_XML_VALUE)
                       .accept(APPLICATION_JSON)
                       .content(notification))
@@ -243,7 +220,7 @@ class NotificationControllerIT {
       String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
       mockMvc
           .perform(
-              post(contextPath + FHIR_BUNDLE_BASE)
+              post(FHIR_BUNDLE_BASE)
                   .contentType(APPLICATION_XML_VALUE)
                   .accept(APPLICATION_JSON)
                   .content(notification))
@@ -254,7 +231,7 @@ class NotificationControllerIT {
     @SneakyThrows
     void shouldReturn400IfOneDocumentIsNotValidated() {
       String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
-      when(validationClient.validateXmlBundle(any(), anyString()))
+      when(validationClient.validateXmlBundle(anyString()))
           .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
       when(s3StorageService.getMetadata(FIRST_DOCUMENT_ID))
           .thenReturn(baseUtil.determineMetadataForValid());
@@ -262,7 +239,7 @@ class NotificationControllerIT {
           .thenReturn(baseUtil.determineMetadataForInValid());
       mockMvc
           .perform(
-              post(contextPath + FHIR_BUNDLE_BASE)
+              post(FHIR_BUNDLE_BASE)
                   .contentType(APPLICATION_XML_VALUE)
                   .accept(APPLICATION_JSON)
                   .content(notification))
@@ -272,7 +249,7 @@ class NotificationControllerIT {
     @Test
     @SneakyThrows
     void shouldReturn400IfSequenceLabIdWrong() {
-      when(validationClient.validateXmlBundle(any(), anyString()))
+      when(validationClient.validateXmlBundle(anyString()))
           .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
       when(s3StorageService.getMetadata(FIRST_DOCUMENT_ID))
           .thenReturn(baseUtil.determineMetadataForValid());
@@ -282,7 +259,7 @@ class NotificationControllerIT {
           baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION_WRONG_SEQUENCEING_LAB_ID);
       mockMvc
           .perform(
-              post(contextPath + FHIR_BUNDLE_BASE)
+              post(FHIR_BUNDLE_BASE)
                   .contentType(APPLICATION_XML_VALUE)
                   .accept(APPLICATION_JSON)
                   .content(notification))
@@ -295,7 +272,7 @@ class NotificationControllerIT {
     @Test
     @SneakyThrows
     void shouldReturn400InXMLWhenAcceptHeaderXML() {
-      when(validationClient.validateXmlBundle(any(), anyString()))
+      when(validationClient.validateXmlBundle(anyString()))
           .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
       when(s3StorageService.getMetadata(FIRST_DOCUMENT_ID))
           .thenReturn(baseUtil.determineMetadataForInValid());
@@ -304,7 +281,7 @@ class NotificationControllerIT {
       String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
       mockMvc
           .perform(
-              post(contextPath + FHIR_BUNDLE_BASE)
+              post(FHIR_BUNDLE_BASE)
                   .contentType(APPLICATION_XML)
                   .accept(APPLICATION_XML_VALUE)
                   .content(notification))
@@ -315,7 +292,7 @@ class NotificationControllerIT {
     @Test
     @SneakyThrows
     void shouldReturn400InJSONWhenAcceptHeaderJSON() {
-      when(validationClient.validateJsonBundle(any(), anyString()))
+      when(validationClient.validateJsonBundle(anyString()))
           .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
       when(s3StorageService.getMetadata(FIRST_DOCUMENT_ID))
           .thenReturn(baseUtil.determineMetadataForInValid());
@@ -324,69 +301,12 @@ class NotificationControllerIT {
       String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION_JSON);
       mockMvc
           .perform(
-              post(contextPath + FHIR_BUNDLE_BASE)
+              post(FHIR_BUNDLE_BASE)
                   .contentType(APPLICATION_JSON)
                   .accept(APPLICATION_JSON_VALUE)
                   .content(notification))
           .andExpect(status().isBadRequest())
           .andDo(print());
-    }
-  }
-
-  @Nested
-  @SpringBootTest(
-      properties = {
-        "igs.demis.external-url=https://ingress.local",
-        "feature.flag.new_api_endpoints=true"
-      })
-  @AutoConfigureMockMvc
-  class FeatureFlag_FEATURE_FLAG_NEW_API_ENDPOINTS {
-
-    @Autowired MockMvc mockMvc;
-    @Captor ArgumentCaptor<HttpHeaders> headerCaptor;
-    @MockitoBean private ValidationServiceClient validationClient;
-    @MockitoBean private FhirStorageWriterClient fhirStorageWriterClient;
-    @MockitoBean private S3StorageService s3StorageService;
-
-    @Value("${igs.context-path}")
-    private String contextPath;
-
-    @Test
-    @SneakyThrows
-    void shouldSetHeaderCorrectlyForVsWithFeatureFlagNewRoutsTrue() {
-      String apiVersion = "apiVersion";
-      String profile = "profile";
-      when(validationClient.validateXmlBundle(any(), anyString()))
-          .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
-      when(fhirStorageWriterClient.sendNotification(anyString()))
-          .thenReturn(ResponseEntity.ok().build());
-      when(s3StorageService.getMetadata(FIRST_DOCUMENT_ID))
-          .thenReturn(baseUtil.determineMetadataForValid());
-      when(s3StorageService.getMetadata(SECOND_DOCUMENT_ID))
-          .thenReturn(baseUtil.determineMetadataForValid());
-      String notification = baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION);
-      mockMvc
-          .perform(
-              post(contextPath + FHIR_BUNDLE_BASE)
-                  .contentType(APPLICATION_XML_VALUE)
-                  .header(HEADER_FHIR_API_VERSION, apiVersion)
-                  .header(HEADER_FHIR_PROFILE, profile)
-                  .accept(APPLICATION_JSON)
-                  .content(notification))
-          .andExpect(status().isOk())
-          .andReturn()
-          .getResponse();
-
-      verify(validationClient).validateXmlBundle(headerCaptor.capture(), eq(notification));
-      assertThat(headerCaptor.getValue())
-          .isNotNull()
-          .hasSize(3)
-          .containsKey(HEADER_FHIR_PROFILE)
-          .extractingByKey(HEADER_FHIR_PROFILE)
-          .isEqualTo(List.of(profile));
-      assertThat(headerCaptor.getValue())
-          .extractingByKey(HEADER_FHIR_API_VERSION)
-          .isEqualTo(List.of(apiVersion));
     }
   }
 }

@@ -2,6 +2,14 @@
 
 # Release Notes IGS-Service
 
+## Release 1.4.0
+- updated base image and updated from Java 21 to Java 25
+- updated garbage collector to G1GC
+- removed Feature-Flag FEATURE_FLAG_NEW_API_ENDPOINTS
+- activated header propagation
+- Reading header values which are relevant for routing has been adapted to support new header based routing. Backwards compatibility is ensured. 
+- Bugfix concerning the message type when invoking the validation service
+
 ## Release 1.3.3
 - Removed istio helm chart
 - Removed feature-flag NEW_API_ENDPOINTS

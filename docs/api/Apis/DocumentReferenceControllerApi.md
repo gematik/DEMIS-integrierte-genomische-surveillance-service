@@ -4,8 +4,8 @@ All URIs are relative to *http://localhost*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
-| [**generateDocumentReference**](DocumentReferenceControllerApi.md#generateDocumentReference) | **POST** /fhir/DocumentReference |  |
-| [**getBinary**](DocumentReferenceControllerApi.md#getBinary) | **GET** /fhir/DocumentReference/{documentId}/$binary-access-read |  |
+| [**generateDocumentReference**](DocumentReferenceControllerApi.md#generateDocumentReference) | **POST** /DocumentReference |  |
+| [**getBinary**](DocumentReferenceControllerApi.md#getBinary) | **GET** /DocumentReference/{documentId}/$binary-access-read |  |
 
 
 <a name="generateDocumentReference"></a>

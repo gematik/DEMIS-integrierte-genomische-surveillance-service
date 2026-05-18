@@ -1,4 +1,4 @@
-package de.gematik.demis.igs.service.service.validation;
+package de.gematik.demis.igs.service.parser;
 
 /*-
  * #%L
@@ -27,28 +27,31 @@ package de.gematik.demis.igs.service.service.validation;
  * #L%
  */
 
-import static de.gematik.demis.igs.service.exception.ServiceCallErrorCode.VS;
+import static de.gematik.demis.igs.service.parser.FhirParser.serializeResource;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.http.MediaType.APPLICATION_XML;
 
-import de.gematik.demis.service.base.feign.annotations.ErrorCode;
-import feign.Response;
-import org.springframework.cloud.openfeign.FeignClient;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.PostMapping;
+import util.BaseUtil;
 
-@FeignClient(name = "validation-service", url = "${igs.validation.url}")
-public interface ValidationServiceClient {
+class FhirParserTest {
 
-  @PostMapping(
-      value = "/$validate",
-      consumes = MediaType.APPLICATION_JSON_VALUE,
-      produces = MediaType.APPLICATION_JSON_VALUE)
-  @ErrorCode(VS)
-  Response validateJsonBundle(String bundleAsJson);
+  private final BaseUtil testData = new BaseUtil();
 
-  @PostMapping(
-      value = "/$validate",
-      consumes = MediaType.APPLICATION_XML_VALUE,
-      produces = MediaType.APPLICATION_JSON_VALUE)
-  @ErrorCode(VS)
-  Response validateXmlBundle(String bundleAsXml);
+  @ParameterizedTest
+  @ValueSource(strings = {"application/json", "application/json+fhir", "application/fhir+json"})
+  void testJsonSerialization(String contentType) {
+    MediaType mediaType = MediaType.valueOf(contentType);
+    String bundleString = serializeResource(testData.getDefaultBundle(), mediaType);
+    assertThat(bundleString).isNotBlank().startsWith("{");
+  }
+
+  @Test
+  void testXmlSerialization() {
+    String bundleString = serializeResource(testData.getDefaultBundle(), APPLICATION_XML);
+    assertThat(bundleString).isNotBlank().startsWith("<");
+  }
 }

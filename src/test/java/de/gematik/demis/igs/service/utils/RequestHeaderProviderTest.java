@@ -27,7 +27,12 @@ package de.gematik.demis.igs.service.utils;
  * #L%
  */
 
+import static de.gematik.demis.igs.service.utils.RequestHeaderProvider.HEADER_FHIR_API_VERSION_LEGACY;
+import static de.gematik.demis.igs.service.utils.RequestHeaderProvider.HEADER_FHIR_PACKAGE;
+import static de.gematik.demis.igs.service.utils.RequestHeaderProvider.HEADER_FHIR_PACKAGE_VERSION;
+import static de.gematik.demis.igs.service.utils.RequestHeaderProvider.HEADER_FHIR_PROFILE_LEGACY;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -54,10 +59,18 @@ class RequestHeaderProviderTest {
   }
 
   @Test
-  void testReceiveApiVersion_FromRequest_WithHeader() {
-    String headerValue = "1.0";
-    org.mockito.Mockito.when(httpServletRequest.getHeader("x-fhir-api-version"))
-        .thenReturn(headerValue);
+  void testReceivePackageVersion_FromRequest_WithHeader() {
+    final String headerValue = "1.0";
+    when(httpServletRequest.getHeader(HEADER_FHIR_PACKAGE_VERSION)).thenReturn(headerValue);
+
+    assertEquals(List.of(headerValue), underTest.receiveApiVersionsFromRequest());
+  }
+
+  @Test
+  void testReceiveApiVersion_FromRequest_WithLegacyHeader() {
+    when(httpServletRequest.getHeader(HEADER_FHIR_PACKAGE_VERSION)).thenReturn(null);
+    final String headerValue = "1.0";
+    when(httpServletRequest.getHeader(HEADER_FHIR_API_VERSION_LEGACY)).thenReturn(headerValue);
 
     assertEquals(List.of(headerValue), underTest.receiveApiVersionsFromRequest());
   }
@@ -68,10 +81,18 @@ class RequestHeaderProviderTest {
   }
 
   @Test
-  void testReceiveFhirProfile_FromRequest_WithHeader() {
-    String headerValue = "profile1";
-    org.mockito.Mockito.when(httpServletRequest.getHeader("x-fhir-profile"))
-        .thenReturn(headerValue);
+  void testReceiveFhirPackage_FromRequest_WithHeader() {
+    final String headerValue = "profile1";
+    when(httpServletRequest.getHeader(HEADER_FHIR_PACKAGE)).thenReturn(headerValue);
+
+    assertEquals(List.of(headerValue), underTest.receiveFhirProfileFromRequest());
+  }
+
+  @Test
+  void testReceiveFhirProfile_FromRequest_WithLegacyHeader() {
+    when(httpServletRequest.getHeader(HEADER_FHIR_PACKAGE)).thenReturn(null);
+    final String headerValue = "profile1";
+    when(httpServletRequest.getHeader(HEADER_FHIR_PROFILE_LEGACY)).thenReturn(headerValue);
 
     assertEquals(List.of(headerValue), underTest.receiveFhirProfileFromRequest());
   }

@@ -27,8 +27,6 @@ package de.gematik.demis.igs.service.utils;
  * #L%
  */
 
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE;
 import static java.util.Optional.ofNullable;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,15 +41,27 @@ import org.springframework.web.context.annotation.RequestScope;
 @RequiredArgsConstructor
 @RequestScope
 public class RequestHeaderProvider {
+  protected static final String HEADER_FHIR_API_VERSION_LEGACY = "x-fhir-api-version";
+  protected static final String HEADER_FHIR_PACKAGE_VERSION = "x-fhir-package-version";
+  protected static final String HEADER_FHIR_PROFILE_LEGACY = "x-fhir-profile";
+  protected static final String HEADER_FHIR_PACKAGE = "x-fhir-package";
 
   private final HttpServletRequest httpServletRequest;
 
   public @Nullable List<String> receiveApiVersionsFromRequest() {
-    return headersFromRequestByName(HEADER_FHIR_API_VERSION);
+    final List<String> apiVersions = headersFromRequestByName(HEADER_FHIR_PACKAGE_VERSION);
+    if (apiVersions != null && !apiVersions.isEmpty()) {
+      return apiVersions;
+    }
+    return headersFromRequestByName(HEADER_FHIR_API_VERSION_LEGACY);
   }
 
   public @Nullable List<String> receiveFhirProfileFromRequest() {
-    return headersFromRequestByName(HEADER_FHIR_PROFILE);
+    final List<String> apiVersions = headersFromRequestByName(HEADER_FHIR_PACKAGE);
+    if (apiVersions != null && !apiVersions.isEmpty()) {
+      return apiVersions;
+    }
+    return headersFromRequestByName(HEADER_FHIR_PROFILE_LEGACY);
   }
 
   private @Nullable List<String> headersFromRequestByName(@Nonnull String headerName) {

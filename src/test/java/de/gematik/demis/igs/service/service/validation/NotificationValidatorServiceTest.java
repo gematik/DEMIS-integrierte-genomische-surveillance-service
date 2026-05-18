@@ -32,9 +32,6 @@ import static de.gematik.demis.igs.service.exception.ErrorCode.FHIR_VALIDATION_F
 import static de.gematik.demis.igs.service.exception.ErrorCode.FILE_NOT_FOUND;
 import static de.gematik.demis.igs.service.exception.ErrorCode.INVALID_DOCUMENT_REFERENCE;
 import static de.gematik.demis.igs.service.exception.ErrorCode.SEQUENCE_DATA_NOT_VALID;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE_OLD;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
 import static de.gematik.demis.igs.service.utils.ErrorMessages.RESOURCE_NOT_FOUND_ERROR_MSG;
 import static java.lang.String.format;
@@ -46,8 +43,9 @@ import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.INFORMATION;
 import static org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity.WARNING;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -80,6 +78,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import util.BaseUtil;
 
 @ExtendWith(MockitoExtension.class)
@@ -140,7 +139,7 @@ class NotificationValidatorServiceTest {
     @Test
     void shouldValidateSuccessfully() {
       String bundleString = testUtil.getDefaultBundleAsString();
-      when(client.validateJsonBundle(any(), eq(bundleString)))
+      when(client.validateJsonBundle(bundleString))
           .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
       OperationOutcome outcome = underTest.validateFhir(bundleString, APPLICATION_JSON);
       assertThat(
@@ -150,24 +149,36 @@ class NotificationValidatorServiceTest {
           .allMatch(severity -> severity.equals(INFORMATION));
     }
 
-    @Test
-    void shouldCallXmlClientIfMediaTypeXml() {
+    @ParameterizedTest
+    @ValueSource(strings = {"application/json", "application/json+fhir", "application/fhir+json"})
+    void shouldCallJsonClientIfMediaTypeIsJson(String contentType) {
       String bundleString = testUtil.getDefaultBundleAsString();
-      when(client.validateXmlBundle(any(), eq(bundleString)))
+      when(client.validateJsonBundle(bundleString))
           .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
-      OperationOutcome outcome = underTest.validateFhir(bundleString, APPLICATION_XML);
-      assertThat(
-              outcome.getIssue().stream()
-                  .map(OperationOutcome.OperationOutcomeIssueComponent::getSeverity))
-          .isNotEmpty()
-          .allMatch(severity -> severity.equals(INFORMATION));
+
+      MediaType mediaType = MediaType.valueOf(contentType);
+      underTest.validateFhir(bundleString, mediaType);
+
+      verify(client, times(1)).validateJsonBundle(bundleString);
+      verify(client, never()).validateXmlBundle(bundleString);
+    }
+
+    @Test
+    void shouldCallXmlClientIfMediaTypeIsXml() {
+      String bundleString = testUtil.getDefaultBundleAsString();
+      when(client.validateXmlBundle(bundleString))
+          .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
+
+      underTest.validateFhir(bundleString, APPLICATION_XML);
+
+      verify(client, times(1)).validateXmlBundle(bundleString);
+      verify(client, never()).validateJsonBundle(bundleString);
     }
 
     @Test
     void shouldThrowExceptionIfValidationRequestFails() {
       String bundleString = testUtil.getDefaultBundleAsString();
-      when(client.validateJsonBundle(any(), eq(bundleString)))
-          .thenReturn(testUtil.createBadRequestResponse());
+      when(client.validateJsonBundle(bundleString)).thenReturn(testUtil.createBadRequestResponse());
       ServiceCallException exception =
           assertThrows(
               ServiceCallException.class,
@@ -179,7 +190,7 @@ class NotificationValidatorServiceTest {
     @Test
     void shouldThrowExceptionIfValidationFatal() {
       String bundleString = testUtil.getDefaultBundleAsString();
-      when(client.validateJsonBundle(any(), eq(bundleString)))
+      when(client.validateJsonBundle(bundleString))
           .thenReturn(testUtil.createOutcomeResponse(FATAL));
       IgsValidationException exception =
           assertThrows(
@@ -191,7 +202,7 @@ class NotificationValidatorServiceTest {
     @Test
     void shouldThrowExceptionIfValidationError() {
       String bundleString = testUtil.getDefaultBundleAsString();
-      when(client.validateJsonBundle(any(), eq(bundleString)))
+      when(client.validateJsonBundle(bundleString))
           .thenReturn(testUtil.createOutcomeResponse(ERROR));
       IgsValidationException exception =
           assertThrows(
@@ -203,58 +214,13 @@ class NotificationValidatorServiceTest {
     @Test
     void shouldThrowExceptionIfValidationWarning() {
       String bundleString = testUtil.getDefaultBundleAsString();
-      when(client.validateJsonBundle(any(), eq(bundleString)))
+      when(client.validateJsonBundle(bundleString))
           .thenReturn(testUtil.createOutcomeResponse(WARNING));
       IgsValidationException exception =
           assertThrows(
               IgsValidationException.class,
               () -> underTest.validateFhir(bundleString, APPLICATION_JSON));
       assertThat(exception.getErrorCode()).contains(FHIR_VALIDATION_ERROR.toString());
-    }
-
-    @Nested
-    class VersionedEndpoints {
-
-      @Test
-      void shouldForwardHeaderCorrectly() {
-        String bundleString = testUtil.getDefaultBundleAsString();
-        String profile = "igs-profile-snapshots";
-        when(requestHeaderProvider.receiveApiVersionsFromRequest()).thenReturn(List.of(VERSION));
-        when(requestHeaderProvider.receiveFhirProfileFromRequest()).thenReturn(List.of(profile));
-        when(client.validateJsonBundle(any(), eq(bundleString)))
-            .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
-
-        underTest.validateFhir(bundleString, APPLICATION_JSON);
-
-        verify(client).validateJsonBundle(headerCaptor.capture(), eq(bundleString));
-        assertThat(headerCaptor.getValue())
-            .isNotNull()
-            .hasSize(3)
-            .containsKey(HEADER_FHIR_PROFILE)
-            .extractingByKey(HEADER_FHIR_PROFILE)
-            .isEqualTo(List.of(profile));
-        assertThat(headerCaptor.getValue())
-            .extractingByKey(HEADER_FHIR_API_VERSION)
-            .isEqualTo(List.of(VERSION));
-      }
-
-      @Test
-      void shouldUseDefaultIfNoHeaderSet() {
-        String bundleString = testUtil.getDefaultBundleAsString();
-        when(requestHeaderProvider.receiveApiVersionsFromRequest()).thenReturn(null);
-        when(requestHeaderProvider.receiveFhirProfileFromRequest()).thenReturn(null);
-        when(client.validateJsonBundle(any(), eq(bundleString)))
-            .thenReturn(testUtil.createOutcomeResponse(INFORMATION));
-        underTest.validateFhir(bundleString, APPLICATION_JSON);
-
-        verify(client).validateJsonBundle(headerCaptor.capture(), eq(bundleString));
-        assertThat(headerCaptor.getValue())
-            .isNotNull()
-            .hasSize(1)
-            .containsKey(HEADER_FHIR_PROFILE_OLD)
-            .extractingByKey(HEADER_FHIR_PROFILE_OLD)
-            .isEqualTo(List.of("igs-profile-snapshots"));
-      }
     }
   }
 
