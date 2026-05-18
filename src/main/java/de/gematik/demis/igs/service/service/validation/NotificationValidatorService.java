@@ -34,12 +34,10 @@ import static de.gematik.demis.igs.service.exception.ErrorCode.INVALID_DOCUMENT_
 import static de.gematik.demis.igs.service.exception.ErrorCode.SEQUENCE_DATA_NOT_VALID;
 import static de.gematik.demis.igs.service.exception.ServiceCallErrorCode.VS;
 import static de.gematik.demis.igs.service.parser.FhirParser.deserializeResource;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_PROFILE_OLD;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 
+import de.gematik.demis.fhirparserlibrary.MessageType;
 import de.gematik.demis.igs.service.exception.ErrorCode;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
 import de.gematik.demis.igs.service.exception.IgsValidationException;
@@ -64,7 +62,6 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueSeverity;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -77,7 +74,7 @@ import org.springframework.stereotype.Service;
 public class NotificationValidatorService {
 
   private static final String CLUSTER_INTERNAL_IGS_URI_PREFIX =
-      "/surveillance/notification-sequence%s/fhir/";
+      "/surveillance/notification-sequence%s/fhir";
   private final ValidationServiceClient validationServiceClient;
   private final Decoder decoder = new StringDecoder();
   private final FhirOperationOutcomeOperationService outcomeService;
@@ -124,21 +121,11 @@ public class NotificationValidatorService {
   }
 
   private Response getValidationResponse(String content, MediaType mediaType) {
-    final HttpHeaders headers = new HttpHeaders();
-
-    final List<String> apiVersion = headerProvider.receiveApiVersionsFromRequest();
-    final List<String> fhirProfile = headerProvider.receiveFhirProfileFromRequest();
-    if (apiVersion != null && !apiVersion.isEmpty()) {
-      headers.putIfAbsent(HEADER_FHIR_API_VERSION, apiVersion);
-    }
-    if (fhirProfile != null && !fhirProfile.isEmpty()) {
-      headers.putIfAbsent(HEADER_FHIR_PROFILE, fhirProfile);
-    }
-    headers.computeIfAbsent(HEADER_FHIR_PROFILE_OLD, ignored -> List.of("igs-profile-snapshots"));
-
-    return mediaType.equals(APPLICATION_JSON)
-        ? validationServiceClient.validateJsonBundle(headers, content)
-        : validationServiceClient.validateXmlBundle(headers, content);
+    MessageType messageType = MessageType.getMessageType(mediaType.toString());
+    return switch (messageType) {
+      case JSON -> validationServiceClient.validateJsonBundle(content);
+      case XML -> validationServiceClient.validateXmlBundle(content);
+    };
   }
 
   private String readResponse(final Response response) {

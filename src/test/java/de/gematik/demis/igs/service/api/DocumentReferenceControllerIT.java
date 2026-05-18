@@ -29,7 +29,6 @@ package de.gematik.demis.igs.service.api;
 
 import static de.gematik.demis.igs.service.api.DocumentReferenceController.FHIR_DOCUMENT_REFERENCE_BASE;
 import static de.gematik.demis.igs.service.api.DocumentReferenceController.FHIR_DOCUMENT_REFERENCE_BINARY_READ;
-import static de.gematik.demis.igs.service.service.validation.ValidationServiceClient.HEADER_FHIR_API_VERSION;
 import static de.gematik.demis.igs.service.utils.Constants.HASH_METADATA_NAME;
 import static de.gematik.demis.igs.service.utils.Constants.UPLOAD_STATUS;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_STATUS;
@@ -71,7 +70,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -126,12 +124,9 @@ class DocumentReferenceControllerIT {
   }
 
   @Nested
-  @SpringBootTest(properties = {"igs.context-path=/"})
   @AutoConfigureMockMvc
+  @SpringBootTest
   class CreateDocumentReferenceTests {
-
-    @Value("${igs.context-path}")
-    private String contextPath;
 
     private String fhirDocumentReferenceBaseUrl;
     @Autowired private MockMvc mockMvc;
@@ -139,7 +134,7 @@ class DocumentReferenceControllerIT {
 
     @PostConstruct
     void init() {
-      fhirDocumentReferenceBaseUrl = contextPath + FHIR_DOCUMENT_REFERENCE_BASE;
+      fhirDocumentReferenceBaseUrl = FHIR_DOCUMENT_REFERENCE_BASE;
     }
 
     @Test
@@ -289,77 +284,13 @@ class DocumentReferenceControllerIT {
   }
 
   @Nested
-  @SpringBootTest(properties = {"igs.context-path=/fhir/"})
   @AutoConfigureMockMvc
-  class CreateDocumentReferenceOnDifferentContextPathTests {
-
-    @Value("${igs.context-path}")
-    private String contextPath;
-
-    private String FHIR_DOCUMENT_REFERENCE_BASE_URL;
-
-    @Autowired private MockMvc mockMvc;
-
-    @PostConstruct
-    void init() {
-      FHIR_DOCUMENT_REFERENCE_BASE_URL = contextPath + FHIR_DOCUMENT_REFERENCE_BASE;
-    }
-
-    @Test
-    void shouldCreateDocumentReferenceWithContextPathAndApiVersion() throws Exception {
-      String apiVersion = "v4";
-      String documentReferenceRequest =
-          testUtil.generateDocumentReferenceJsonForFile(PATH_TO_DOCUMENT_REFERENCE_JSON);
-
-      MockHttpServletResponse response =
-          mockMvc
-              .perform(
-                  post(FHIR_DOCUMENT_REFERENCE_BASE_URL)
-                      .contentType(APPLICATION_JSON_VALUE)
-                      .header(HEADER_FHIR_API_VERSION, apiVersion)
-                      .content(documentReferenceRequest))
-              .andExpect(status().isCreated())
-              .andExpect(
-                  header()
-                      .string(
-                          LOCATION_HEADER,
-                          new MatchesPattern(
-                              Pattern.compile("/" + apiVersion + PREFIX + UUID_REGEX))))
-              .andExpect(
-                  header().string(CONTENT_TYPE, new StringStartsWith(APPLICATION_JSON_VALUE)))
-              .andReturn()
-              .getResponse();
-
-      String locationHeader = response.getHeader(DocumentReferenceControllerIT.LOCATION_HEADER);
-
-      String responseBody = response.getContentAsString();
-      IParser parser = contextR4.newJsonParser();
-      DocumentReference documentReference =
-          parser.parseResource(DocumentReference.class, responseBody);
-      String responseBodyDocumentReferenceId = documentReference.getIdPart();
-
-      assertThat(locationHeader).isNotNull().endsWith(responseBodyDocumentReferenceId);
-    }
-  }
-
-  @Nested
-  @SpringBootTest(properties = {"igs.context-path=/"})
-  @AutoConfigureMockMvc
+  @SpringBootTest
   class DownloadBinaryTests {
 
     @Autowired S3Client s3;
-
-    @Value("${igs.context-path}")
-    private String contextPath;
-
-    private String FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL;
     @Autowired private MockMvc mockMvc;
     @Autowired private SimpleStorageService storageService;
-
-    @PostConstruct
-    void init() {
-      FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL = contextPath + FHIR_DOCUMENT_REFERENCE_BINARY_READ;
-    }
 
     @SneakyThrows
     void uploadFileAtDocumentIdWithStatusToBucket(
@@ -398,7 +329,7 @@ class DocumentReferenceControllerIT {
           PATH_TO_FASTQ, DOCUMENT_ID, VALID.name(), "sequence-data-valid");
       mockMvc
           .perform(
-              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL.replace("{documentId}", DOCUMENT_ID))
+              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ.replace("{documentId}", DOCUMENT_ID))
                   .param("path", "DocumentReference.content.attachment"))
           .andExpect(status().isOk())
           .andExpect(content().bytes(testUtil.readFileToByteArray(PATH_TO_FASTQ)))
@@ -416,7 +347,7 @@ class DocumentReferenceControllerIT {
           PATH_TO_FASTQ, DOCUMENT_ID, VALID.name(), "sequence-data");
       mockMvc
           .perform(
-              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL.replace(
+              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ.replace(
                       "{documentId}", NOT_EXISTING_DOCUMENT_ID))
                   .param("path", "DocumentReference.content.attachment")
                   .contentType(APPLICATION_OCTET_STREAM_VALUE)
@@ -429,7 +360,7 @@ class DocumentReferenceControllerIT {
     void shouldReturn400IfPathIsWrong() {
       mockMvc
           .perform(
-              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ_URL.replace("{documentId}", DOCUMENT_ID))
+              get(FHIR_DOCUMENT_REFERENCE_BINARY_READ.replace("{documentId}", DOCUMENT_ID))
                   .param("path", "WRONG PATH!"))
           .andExpect(status().isBadRequest());
     }

@@ -32,6 +32,7 @@ import static lombok.AccessLevel.PRIVATE;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
+import de.gematik.demis.fhirparserlibrary.MessageType;
 import de.gematik.demis.igs.service.exception.ErrorCode;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
 import lombok.NoArgsConstructor;
@@ -96,10 +97,10 @@ public class FhirParser {
   }
 
   private static IParser getParser(MediaType mediaType) {
-    if (mediaType.equalsTypeAndSubtype(MediaType.APPLICATION_JSON)) {
-      return fhirContext.newJsonParser();
-    } else {
-      return fhirContext.newXmlParser();
-    }
+    MessageType messageType = MessageType.getMessageType(mediaType.toString());
+    return switch (messageType) {
+      case JSON -> fhirContext.newJsonParser();
+      case XML -> fhirContext.newXmlParser();
+    };
   }
 }
