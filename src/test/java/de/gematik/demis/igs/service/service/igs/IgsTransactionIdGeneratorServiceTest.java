@@ -44,11 +44,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
 import util.BaseUtil;
 
-@RunWith(MockitoJUnitRunner.class)
 class IgsTransactionIdGeneratorServiceTest {
 
   private static final Pattern ID_PATTERN =

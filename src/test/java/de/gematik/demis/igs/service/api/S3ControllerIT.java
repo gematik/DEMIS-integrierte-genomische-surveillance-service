@@ -48,16 +48,16 @@ import static de.gematik.demis.igs.service.utils.ErrorMessages.INVALID_DOCUMENT_
 import static java.lang.String.format;
 import static java.time.Duration.ofSeconds;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 import static util.BaseUtil.PATH_TO_FASTA;
 import static util.BaseUtil.PATH_TO_FASTA_GZIP;
 import static util.BaseUtil.PATH_TO_FASTA_INVALID;
@@ -103,8 +103,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -293,9 +293,9 @@ public class S3ControllerIT {
       assertThat(metaData).containsEntry(VALIDATION_DESCRIPTION, errorMessage);
       IgsServiceException ex =
           assertThrows(
-              "File should be empty and therefore throw an exception",
               IgsServiceException.class,
-              () -> storageService.getBlob(documentId));
+              () -> storageService.getBlob(documentId),
+              "File should be empty and therefore throw an exception");
       assertThat(ex.getMessage()).contains("Requested resource not found");
     }
 

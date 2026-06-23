@@ -2,6 +2,13 @@
 
 # Release Notes IGS-Service
 
+## Release 1.5.0
+- arranged jvm options and resource limits
+- optimized custom environment variables handling in helm chart
+- updated docker base image to gematik1/osadl-alpine-openjdk25-jre:1.0.5
+- upgraded to spring boot 4
+- updated secret handling to use secret volume mounts
+
 ## Release 1.4.0
 - updated base image and updated from Java 21 to Java 25
 - updated garbage collector to G1GC

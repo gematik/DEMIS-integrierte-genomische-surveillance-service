@@ -8,6 +8,7 @@ replicaCount: 2
 # Enables debug mode
 debug:
   enable: false
+  params: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:9000"
 
 # Required Values for the Chart
 required:
@@ -21,24 +22,19 @@ required:
     # If not given, the Chart AppVersion will be used
     tag: null
 
-# Define custom configuration values
-# The Entries will be read from the given (external) Secrets and injected in the container with the same name.
-# IMPORTANT: these values must be defined in the Secret Objects
-config:
-  # The (external) Secret Objects containing the API Key entry
-  secrets:
-    # The (external) Secret for IGS
-    igs:
-      # The name of the (external) Secret for IGS and the entries to be used and mapped
-      name: igs-secret
-      entries:
-        S3_STORAGE_TLS_CERTIFICATE_INTERNAL: S3_STORAGE_TLS_CERTIFICATE_INTERNAL
-    minio:
-      # The name of the (external) Secret for MinIO and the entries to be used and mapped
-      name: minio-secret
-      entries:
-        S3_ACCESS_KEY: MINIO_ROOT_USER
-        S3_SECRET_KEY: MINIO_ROOT_PASSWORD
+secret:
+  s3AccessKey:
+    name: minio-secret
+    key: MINIO_ROOT_USER
+    propPath: simple/storage/service/access-key
+  s3SecretKey:
+    name: minio-secret
+    key: MINIO_ROOT_PASSWORD
+    propPath: simple/storage/service/secret-key
+  s3TlsCertificateInternal:
+    name: igs-secret
+    key: S3_STORAGE_TLS_CERTIFICATE_INTERNAL
+    propPath: simple/storage/service/storage-tls-certificate-internal
 
 # Extra Labels to be added
 # E.g.
@@ -53,6 +49,10 @@ deploymentLabels: {}
 # customEnvVars
 #   key: value
 customEnvVars:
+  JAVA_TOOL_OPTIONS: "-XX:ActiveProcessorCount=2 -XX:MaxRAMPercentage=40.0 -XX:MaxMetaspaceSize=160m -XX:+UseG1GC"
+  TZ: "Europe/Berlin"
+  API_ENTRYPOINT: "/"
+  DEMIS_NETWORK_FHIR_STORAGE_WRITER_CONTEXT_PATH: "/"
   S3_URL: "https://igs-storage.ingress.local"
   DEMIS_NETWORK_FHIR_STORAGE_WRITER_ADDRESS: "http://fhir-storage-writer.demis.svc.cluster.local"
   DEMIS_NETWORK_VALIDATION_SERVICE_ADDRESS: "http://validation-service.demis.svc.cluster.local"
@@ -61,8 +61,8 @@ customEnvVars:
 # Define custom Container Entrypoint and Arguments (e.g. JVM Tuning)
 # If not given, the Entrypoint defined in Dockerfile will be used
 application:
-  entrypoint: ["java"]
-  parameters: ["-XX:ActiveProcessorCount=2", "-XX:MaxRAMPercentage=95.0", "-XX:+TieredCompilation", "-XX:+UseG1GC", "-jar", "-Xmx1G", "/app.jar"]
+  entrypoint: []
+  parameters: []
 
 # Define Image Pull Secrets if using private registry
 imagePullSecrets: []
@@ -129,10 +129,10 @@ service:
 # Default Resources
 resources:
   limits:
-    memory: "500Mi"
+    memory: "600Mi"
   requests:
     cpu: "300m"
-    memory: "256Mi"
+    memory: "600Mi"
 
 autoscaling:
   enabled: false

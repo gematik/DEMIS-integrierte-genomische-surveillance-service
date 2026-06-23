@@ -30,7 +30,7 @@ package de.gematik.demis.igs.service.service.fhir;
 import static de.gematik.demis.igs.service.utils.Constants.EXTENSION_URL;
 import static de.gematik.demis.igs.service.utils.Constants.EXTENSION_URL_RECEPTION_TIME_STAMP_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.http.MediaType.APPLICATION_XML;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION_BUNDLE;
