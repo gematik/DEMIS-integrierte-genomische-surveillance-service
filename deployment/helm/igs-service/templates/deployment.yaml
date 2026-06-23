@@ -1,12 +1,7 @@
 {{/* Check required values and define variables */}}
-{{- $customEnvVars := .Values.customEnvVars -}}
 {{- $dockerRepository := .Values.required.image.repository | required ".Values.required.image.repository is required." -}}
 {{- $dockerImage := .Values.required.image.name | required ".Values.required.image.name is required." -}}
 {{- $dockerTag := .Values.required.image.tag | default .Chart.AppVersion -}}
-{{- $secretMinioName := .Values.config.secrets.minio.name | required ".Values.config.secrets.minio.name is required." -}}
-{{- $secretMinioEntries := .Values.config.secrets.minio.entries -}}
-{{- $secretIgsName := .Values.config.secrets.igs.name | required ".Values.config.secrets.igs.name is required" -}}
-{{- $secretIgsEntries := .Values.config.secrets.igs.entries -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,6 +40,14 @@ spec:
         - name: jfr-volume
           emptyDir: {}
         {{- end }}
+        {{- range $name, $secret := .Values.secret }}
+        - name: {{ $name | kebabcase }}-secret-volume
+          secret:
+            secretName: {{ $secret.name }}
+            items:
+              - key: {{ $secret.key }}
+                path: {{ $secret.propPath }}
+        {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -67,38 +70,7 @@ spec:
           {{- end }}
           # Set the Environment Variables for the container
           env:
-            - name: "TZ"
-              value: "Europe/Berlin"
-            - name: "API_ENTRYPOINT"
-              value: "/"
-            - name: "DEMIS_NETWORK_FHIR_STORAGE_WRITER_CONTEXT_PATH"
-              value: "/"
-            {{- if .Values.debug.enable }}
-            - name: "JAVA_TOOL_OPTIONS"
-              value: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:9000"
-            {{- end }}
-            {{- if $customEnvVars }}
-            # Custom Environment Variables
-            {{- range $_, $key := keys $customEnvVars | sortAlpha }}
-            - name: {{ $key | quote }}
-              value: {{ get $customEnvVars $key | quote }}
-            {{- end }}
-            {{- end }}
-            {{- range $key, $val := $secretMinioEntries }}
-            # Custom Environment Variables for MinIO Secrets
-            - name: {{ $key | quote }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secretMinioName | quote }}
-                  key: {{ $val | quote }}
-            {{- end }}
-            {{- range $key, $val := $secretIgsEntries }}
-            - name: {{ $key | quote }}
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $secretIgsName | quote }}
-                  key: {{ $val | quote }}
-            {{- end }}
+            {{- include "integrierte-genomische-surveillance-service.env" . | nindent 12 }}
           # Mount Volumes in container
           volumeMounts:
             - name: tmp-volume
@@ -106,6 +78,11 @@ spec:
             {{- if .Values.debug.enable }}
             - name: jfr-volume
               mountPath: /jfrdump
+            {{- end }}
+            {{- range $name, $secret := .Values.secret }}
+            - name: {{ $name | kebabcase }}-secret-volume
+              readOnly: true
+              mountPath: "/secrets/{{ $name | kebabcase }}"
             {{- end }}
           # Ports to be exposed from the container
           ports:
