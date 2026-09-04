@@ -30,14 +30,16 @@ package de.gematik.demis.igs.service.service.fhir;
 import static de.gematik.demis.igs.service.exception.ErrorCode.MISSING_RESOURCE;
 import static de.gematik.demis.igs.service.utils.Constants.EXTENSION_URL;
 import static de.gematik.demis.igs.service.utils.Constants.EXTENSION_URL_RECEPTION_TIME_STAMP_TYPE;
-import static de.gematik.demis.igs.service.utils.Constants.LABORATORY_ID_URL;
 import static de.gematik.demis.igs.service.utils.Constants.NOTIFICATION_BUNDLE_IDENTIFIER_SYSTEM;
+import static de.gematik.demis.igs.service.utils.Constants.SYSTEM_NOTIFIER_FACILITY;
 import static java.lang.String.format;
 
 import de.gematik.demis.fhirparserlibrary.FhirParser;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
+import de.gematik.demis.igs.service.logging.LoggingContext;
 import java.util.Date;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -58,6 +60,7 @@ import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.Specimen;
 import org.hl7.fhir.r4.model.Specimen.SpecimenProcessingComponent;
 import org.hl7.fhir.r4.model.StringType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
@@ -72,6 +75,7 @@ public class FhirBundleOperationService {
       "https://demis.rki.de/fhir/igs/StructureDefinition/SequenceDocumentReference";
 
   private final FhirParser fhirParser;
+  @Autowired private LoggingContext context;
 
   /**
    * Takes a Fhir parameters resource as string, parse it and returns the contained <Bundle>. It`s
@@ -128,18 +132,20 @@ public class FhirBundleOperationService {
   }
 
   /**
-   * Searches for a <Organization> resource with <LABORATORY_ID_URL> as system.
+   * Searches for a <Organization> resource with meta profile <SYSTEM_NOTIFIER_FACILITY>.
    *
    * @param bundle the <Bundle> to search in
    * @return an optional of the requested resource
    */
-  public Optional<Organization> getLaboratoryOrganization(Bundle bundle) {
-    return getEntryOfType(
-        bundle,
-        Organization.class,
-        org ->
-            org.getIdentifier().stream()
-                .anyMatch(identifier -> identifier.getSystem().equals(LABORATORY_ID_URL)));
+  public Optional<Organization> determineNotifierFacility(Bundle bundle) {
+    try {
+      return getEntryOfType(
+          bundle,
+          Organization.class,
+          org -> org.getMeta().getProfile().getFirst().getValue().equals(SYSTEM_NOTIFIER_FACILITY));
+    } catch (NoSuchElementException _) {
+      return Optional.empty();
+    }
   }
 
   /**
@@ -265,10 +271,11 @@ public class FhirBundleOperationService {
   }
 
   private void updateBundleId(final Bundle bundle) {
+    String uuid = UUID.randomUUID().toString();
+    context.setNotificationId(uuid);
+
     bundle.setIdentifier(
-        new Identifier()
-            .setSystem(NOTIFICATION_BUNDLE_IDENTIFIER_SYSTEM)
-            .setValue(UUID.randomUUID().toString()));
+        new Identifier().setSystem(NOTIFICATION_BUNDLE_IDENTIFIER_SYSTEM).setValue(uuid));
   }
 
   /**

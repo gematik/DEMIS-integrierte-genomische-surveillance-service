@@ -73,6 +73,7 @@ import static util.BaseUtil.PATH_TO_GZIP_INVALID;
 import static util.BaseUtil.TOKEN_NRZ;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.gematik.demis.igs.service.MinioTestBase;
 import de.gematik.demis.igs.service.api.model.CompletedChunk;
 import de.gematik.demis.igs.service.api.model.MultipartUploadComplete;
 import de.gematik.demis.igs.service.api.model.S3Info;
@@ -106,50 +107,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import util.BaseUtil;
 
-@Testcontainers
 @SpringBootTest
 @AutoConfigureMockMvc
-public class S3ControllerIT {
+public class S3ControllerIT extends MinioTestBase {
 
-  private static final String DOCUMENT_ID = "someId";
+  private static final String DOCUMENT_ID = UUID.randomUUID().toString();
   private static final String NOT_EXISTING_DOCUMENT_ID = "NotExisting";
-  private static final String MINIO_ROOT_USER = "MY_ACCESS_KEY";
-  private static final String MINIO_ROOT_PASSWORD = "VERY_VERY_SECURE_PASSWORD";
-
-  @Container
-  private static final GenericContainer<?> minioContainer =
-      new GenericContainer<>("minio/minio")
-          .withExposedPorts(9000)
-          .withEnv("MINIO_ROOT_USER", MINIO_ROOT_USER)
-          .withEnv("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
-          .waitingFor(new HttpWaitStrategy().forPath("/minio/health/live"))
-          .withCommand("server /mnt/data");
 
   private final BaseUtil testUtil = new BaseUtil();
 
   @Autowired private SimpleStorageService storageService;
   @Autowired private MockMvc mockMvc;
-
-  @DynamicPropertySource
-  static void minioProperties(DynamicPropertyRegistry registry) {
-    String storageUrl =
-        "http://" + minioContainer.getHost() + ":" + minioContainer.getFirstMappedPort();
-    registry.add("simple.storage.service.url", () -> storageUrl);
-    registry.add("simple.storage.service.cluster-url", () -> storageUrl);
-    registry.add("simple.storage.service.access-key", () -> MINIO_ROOT_USER);
-    registry.add("simple.storage.service.secret-key", () -> MINIO_ROOT_PASSWORD);
-  }
 
   @Nested
   class GetSignedUrlTests {
@@ -180,13 +153,14 @@ public class S3ControllerIT {
     @Test
     @SneakyThrows
     void shouldKeepMetaDataAfterGettingPresignedUrls() {
+      String documentId = UUID.randomUUID().toString();
       Map<String, String> meta = new HashMap<>();
       meta.put(HASH_METADATA_NAME, "SomeHash");
       meta.put(VALIDATION_STATUS, VALIDATION_NOT_INITIATED.name());
-      storageService.putBlob(DOCUMENT_ID, meta, InputStream.nullInputStream());
+      storageService.putBlob(documentId, meta, InputStream.nullInputStream());
       mockMvc.perform(
-          get(S3_UPLOAD_INFO.replace("{documentId}", DOCUMENT_ID)).queryParam("fileSize", MB400));
-      Map<String, String> newMeta = storageService.getMetadata(DOCUMENT_ID);
+          get(S3_UPLOAD_INFO.replace("{documentId}", documentId)).queryParam("fileSize", MB400));
+      Map<String, String> newMeta = storageService.getMetadata(documentId);
       assertThat(newMeta).isEqualTo(meta);
     }
 
@@ -515,7 +489,9 @@ public class S3ControllerIT {
       Proxy proxy =
           new Proxy(
               Proxy.Type.HTTP,
-              new InetSocketAddress(minioContainer.getHost(), minioContainer.getFirstMappedPort()));
+              new InetSocketAddress(
+                  MinioTestBase.MINIO_CONTAINER.getHost(),
+                  MinioTestBase.MINIO_CONTAINER.getFirstMappedPort()));
       HttpURLConnection connection = (HttpURLConnection) presignedUrl.openConnection(proxy);
       connection.setDoOutput(true);
       connection.setRequestMethod("PUT");

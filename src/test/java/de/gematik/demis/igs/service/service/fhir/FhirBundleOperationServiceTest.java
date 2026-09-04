@@ -27,8 +27,7 @@ package de.gematik.demis.igs.service.service.fhir;
  * #L%
  */
 
-import static de.gematik.demis.igs.service.utils.Constants.EXTENSION_URL;
-import static de.gematik.demis.igs.service.utils.Constants.EXTENSION_URL_RECEPTION_TIME_STAMP_TYPE;
+import static de.gematik.demis.igs.service.utils.Constants.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.http.MediaType.APPLICATION_XML;
@@ -49,6 +48,7 @@ import de.gematik.demis.fhirparserlibrary.FhirParser;
 import de.gematik.demis.fhirparserlibrary.ParsingException;
 import de.gematik.demis.igs.service.exception.ErrorCode;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
+import de.gematik.demis.igs.service.logging.LoggingContext;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -60,12 +60,16 @@ import org.hl7.fhir.r4.model.Composition.CompositionRelatesToComponent;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DiagnosticReport;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.MolecularSequence;
+import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Provenance;
 import org.hl7.fhir.r4.model.Specimen;
 import org.hl7.fhir.r4.model.Specimen.SpecimenProcessingComponent;
 import org.hl7.fhir.r4.model.StringType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import util.BaseUtil;
 
 class FhirBundleOperationServiceTest {
@@ -74,6 +78,14 @@ class FhirBundleOperationServiceTest {
   BaseUtil testUtils = new BaseUtil();
   FhirBundleOperationService underTest =
       new FhirBundleOperationService(new FhirParser(FhirContext.forR4Cached()));
+
+  LoggingContext context = new LoggingContext();
+
+  @BeforeEach
+  void setUp() {
+    context = new LoggingContext();
+    ReflectionTestUtils.setField(underTest, "context", context);
+  }
 
   @Test
   @SneakyThrows
@@ -301,5 +313,47 @@ class FhirBundleOperationServiceTest {
         .containsExactly(
             "https://ingress.local/surveillance/notification-sequence/fhir/DocumentReference/ecd3f1f0-b6b6-46e0-b721-2d9869ab8195",
             "https://ingress.local/surveillance/notification-sequence/fhir/DocumentReference/fde4g2g1-b6b6-46e0-b721-2d9869ab8195");
+  }
+
+  @Test
+  void shouldDetermineNotifierFacility() {
+    Bundle bundle = testUtils.getDefaultBundle();
+    Optional<Organization> notifierFacilityOptional = underTest.determineNotifierFacility(bundle);
+    assertThat(notifierFacilityOptional).isNotEmpty();
+    Organization notifierFacility = notifierFacilityOptional.get();
+    assertThat(notifierFacility.getIdentifier()).isNotNull().hasSize(1);
+    Identifier identifier = notifierFacility.getIdentifier().getFirst();
+    assertThat(identifier.getSystem())
+        .isNotNull()
+        .isEqualTo("https://demis.rki.de/fhir/NamingSystem/DemisParticipantId");
+    assertThat(identifier.getValue()).isNotNull().isEqualTo("10285");
+  }
+
+  @Test
+  void shouldReturnEmptyOnNoNotifierFacility() {
+    Bundle bundle =
+        testUtils.getBundleFromFile("igsNotification/notificationWithoutSequencingLab.xml");
+    Optional<Organization> notifierFacilityOptional = underTest.determineNotifierFacility(bundle);
+    assertThat(notifierFacilityOptional).isEmpty();
+  }
+
+  @Test
+  void shouldWriteGeneratedNotificationIdToLoggingContext() {
+    Bundle bundle = testUtils.getDefaultBundle();
+
+    underTest.enrichNotification(bundle);
+
+    assertThat(context.getNotificationId()).isNotBlank();
+    assertThat(bundle.getIdentifier().getValue()).isEqualTo(context.getNotificationId());
+  }
+
+  @Test
+  void shouldSetBundleIdentifierEvenWithoutContext() {
+    Bundle bundle = testUtils.getDefaultBundle();
+
+    underTest.enrichNotification(bundle);
+
+    assertThat(bundle.getIdentifier().getSystem()).isEqualTo(NOTIFICATION_BUNDLE_IDENTIFIER_SYSTEM);
+    assertThat(bundle.getIdentifier().getValue()).isNotBlank();
   }
 }

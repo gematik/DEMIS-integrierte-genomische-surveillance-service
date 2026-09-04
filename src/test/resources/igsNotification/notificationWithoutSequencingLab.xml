@@ -27,7 +27,7 @@
 <Parameters xmlns="http://hl7.org/fhir">
   <meta>
     <profile
-      value="https://demis.rki.de/fhir/igs/CodeSystem/notificationCategory"/>
+      value="https://demis.rki.de/fhir/igs/StructureDefinition/ProcessNotificationSequenceRequestParameters"/>
   </meta>
   <parameter>
     <name value="Bundle"/>
@@ -79,6 +79,16 @@
                 <reference value="PractitionerRole/c92c9646-e0c8-3c3d-840c-33e505648a5c"/>
               </author>
               <title value="Sequenzmeldung"/>
+              <relatesTo>
+                <code value="appends"/>
+                <targetReference>
+                  <type value="Composition"/>
+                  <identifier>
+                    <system value="https://demis.rki.de/fhir/NamingSystem/NotificationId"/>
+                    <value value="f8585efb-1872-4a4f-b88d-8c889e93487b"/> <!-- submitterGeneratedNotificationID -->
+                  </identifier>
+                </targetReference>
+              </relatesTo>
               <section>
                 <code>
                   <coding>
@@ -376,6 +386,14 @@
                   <type value="DocumentReference"/>
                 </valueReference>
               </extension>
+              <extension
+                      url="https://demis.rki.de/fhir/igs/StructureDefinition/SequenceDocumentReference">
+                <valueReference>
+                  <reference
+                          value="https://ingress.local/surveillance/notification-sequence/fhir/DocumentReference/fde4g2g1-b6b6-46e0-b721-2d9869ab8195"/>
+                  <type value="DocumentReference"/>
+                </valueReference>
+              </extension>
               <identifier>
                 <value value="A384"/> <!-- sequenceIdentifier -->
               </identifier>
@@ -418,7 +436,6 @@
             <Organization>
               <id value="227a66a4-a2fe-34b9-ad24-55981d0d1d82"/>
               <meta>
-                <profile value="https://demis.rki.de/fhir/StructureDefinition/NotifierFacility"/>
               </meta>
               <identifier>
                 <system value="https://demis.rki.de/fhir/NamingSystem/DemisParticipantId"/>

@@ -60,6 +60,7 @@ This project includes:
   AWS Java SDK :: HTTP Auth SPI under Apache License, Version 2.0
   AWS Java SDK :: HTTP Client Interface under Apache License, Version 2.0
   AWS Java SDK :: HTTP Clients :: Apache under Apache License, Version 2.0
+  AWS Java SDK :: HTTP Clients :: Apache5 under Apache License, Version 2.0
   AWS Java SDK :: HTTP Clients :: Netty Non-Blocking I/O under Apache License, Version 2.0
   AWS Java SDK :: Identity SPI under Apache License, Version 2.0
   AWS Java SDK :: Metrics SPI under Apache License, Version 2.0
@@ -71,6 +72,7 @@ This project includes:
   AWS Java SDK :: Services :: Amazon S3 under Apache License, Version 2.0
   AWS Java SDK :: Third Party :: Jackson-core under Apache License, Version 2.0
   AWS Java SDK :: Utilities under Apache License, Version 2.0
+  AWS Java SDK :: Utils Lite under Apache License, Version 2.0
   Bouncy Castle Provider under Bouncy Castle Licence
   Byte Buddy (without dependencies) under Apache License, Version 2.0
   Byte Buddy agent under Apache License, Version 2.0
@@ -167,10 +169,9 @@ This project includes:
   JUnit Platform Commons under Eclipse Public License v2.0
   JUnit Platform Engine API under Eclipse Public License v2.0
   Kotlin Stdlib under Apache-2.0
-  LatencyUtils under Public Domain, per Creative Commons CC0
   Log4j API to SLF4J Adapter under Apache-2.0
-  Logback Classic Module under Eclipse Public License - v 2.0 or GNU Lesser General Public License
-  Logback Core Module under Eclipse Public License - v 2.0 or GNU Lesser General Public License
+  Logback Classic Module under EPL-2.0 or LGPL-2.1-only
+  Logback Core Module under EPL-2.0 or LGPL-2.1-only
   Logstash Logback Encoder under Apache License, Version 2.0 or MIT License
   Maven Artifact under Apache-2.0
   Maven Artifact Resolver API under Apache-2.0

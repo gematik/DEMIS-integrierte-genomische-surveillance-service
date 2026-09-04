@@ -56,10 +56,12 @@ import static util.BaseUtil.PATH_TO_FASTQ;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import de.gematik.demis.igs.service.MinioTestBase;
 import de.gematik.demis.igs.service.service.storage.SimpleStorageService;
 import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import lombok.SneakyThrows;
 import org.hamcrest.core.StringStartsWith;
@@ -73,13 +75,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -88,8 +84,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import util.BaseUtil;
 
-@Testcontainers
-class DocumentReferenceControllerIT {
+class DocumentReferenceControllerIT extends MinioTestBase {
 
   public static final String PREFIX = "/fhir/DocumentReference/";
   public static final String UUID_REGEX =
@@ -97,31 +92,10 @@ class DocumentReferenceControllerIT {
   private static final String LOCATION_HEADER = "location";
 
   private static final FhirContext contextR4 = FhirContext.forR4Cached();
-  private static final String DOCUMENT_ID = "someId";
+  private static final String DOCUMENT_ID = UUID.randomUUID().toString();
   private static final String NOT_EXISTING_DOCUMENT_ID = "NotExisting";
-  private static final String MINIO_ROOT_USER = "MY_ACCESS_KEY";
-  private static final String MINIO_ROOT_PASSWORD = "VERY_VERY_SECURE_PASSWORD";
-
-  @Container
-  private static final GenericContainer<?> minioContainer =
-      new GenericContainer<>("minio/minio")
-          .withExposedPorts(9000)
-          .withEnv("MINIO_ROOT_USER", MINIO_ROOT_USER)
-          .withEnv("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
-          .waitingFor(new HttpWaitStrategy().forPath("/minio/health/live"))
-          .withCommand("server /mnt/data");
 
   private final BaseUtil testUtil = new BaseUtil();
-
-  @DynamicPropertySource
-  static void minioProperties(DynamicPropertyRegistry registry) {
-    String storageUrl =
-        "http://" + minioContainer.getHost() + ":" + minioContainer.getFirstMappedPort();
-    registry.add("simple.storage.service.url", () -> storageUrl);
-    registry.add("simple.storage.service.cluster-url", () -> storageUrl);
-    registry.add("simple.storage.service.access-key", () -> MINIO_ROOT_USER);
-    registry.add("simple.storage.service.secret-key", () -> MINIO_ROOT_PASSWORD);
-  }
 
   @Nested
   @AutoConfigureMockMvc

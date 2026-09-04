@@ -101,7 +101,7 @@ class NotificationServiceTest {
         .when(fhirBundleOperationService.getDiagnosticReport(any()))
         .thenReturn(Optional.of(testUtil.defaultDiagnosticReport()));
     lenient()
-        .when(fhirBundleOperationService.getLaboratoryOrganization(any()))
+        .when(fhirBundleOperationService.determineNotifierFacility(any()))
         .thenReturn(Optional.of(testUtil.defaultOrganization()));
     lenient()
         .when(fhirBundleOperationService.getMolecularSequence(any()))
@@ -114,7 +114,7 @@ class NotificationServiceTest {
 
   @Test
   void shouldSetDeliveredTransactionIdToCorrectIdentifier() {
-    when(fhirBundleOperationService.getLaboratoryOrganization(any())).thenReturn(Optional.empty());
+    when(fhirBundleOperationService.determineNotifierFacility(any())).thenReturn(Optional.empty());
 
     Parameters response = service.process(DEFAULT_BUNDLE, mediaType, token);
 

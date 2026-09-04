@@ -27,13 +27,13 @@ package de.gematik.demis.igs.service.service.igs;
  * #L%
  */
 
-import static de.gematik.demis.igs.service.utils.Constants.LABORATORY_ID_URL;
+import static de.gematik.demis.igs.service.utils.Constants.SYSTEM_DEMIS_PARTICIPANT_ID;
 import static java.lang.String.format;
 
 import de.gematik.demis.igs.service.exception.ErrorCode;
 import de.gematik.demis.igs.service.exception.IgsServiceException;
+import de.gematik.demis.igs.service.logging.LoggingContext;
 import de.gematik.demis.igs.service.service.fhir.FhirBundleOperationService;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DiagnosticReport;
 import org.hl7.fhir.r4.model.Organization;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /** Generate the TransactionId out of a bundle */
@@ -49,17 +50,16 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class IgsTransactionIdGeneratorService {
 
-  public static final String DEFAULT_LAB_ID = "99999";
   private static final String ID_PREFIX = "IGS";
   private static final String CODE_URL =
       "https://demis.rki.de/fhir/CodeSystem/notificationCategory";
   private final FhirBundleOperationService fhirBundleOperationService;
-  private Pattern sequencingLabIdPattern = Pattern.compile("\\d{5}");
+  private final Pattern sequencingLabIdPattern = Pattern.compile("\\d{5}");
+  @Autowired private LoggingContext context;
 
   /**
    * Generates <TransactionId> out of given <Bundle>. The <TransactionId> is build with schema:
    * <IGS_PREFIX><DEMIS_USERNAME><PATHOGEN_CODE><UUID> If no <DEMIS_USERNAME> is available the
-   * default 99999 is added
    *
    * @param bundle the <Bundle> the data got extracted from
    * @return build <TransactionId>
@@ -67,29 +67,33 @@ public class IgsTransactionIdGeneratorService {
   public String generateTransactionId(Bundle bundle) {
     final String demisUsername = getLaboratoryId(bundle);
     final String pathogenCode = getPathogenCode(bundle);
-
-    return format("%s-%s-%s-%s", ID_PREFIX, demisUsername, pathogenCode, UUID.randomUUID())
-        .toUpperCase();
+    final String transactionId =
+        format("%s-%s-%s-%s", ID_PREFIX, demisUsername, pathogenCode, UUID.randomUUID())
+            .toUpperCase();
+    context.setPathogenCode(pathogenCode);
+    context.setTransactionId(transactionId);
+    return transactionId;
   }
 
   private String getLaboratoryId(Bundle bundle) {
-
-    Optional<Organization> orgOptional =
-        fhirBundleOperationService.getLaboratoryOrganization(bundle);
-    if (orgOptional.isEmpty()) {
-      return DEFAULT_LAB_ID;
-    }
+    Organization notifierFacility =
+        fhirBundleOperationService.determineNotifierFacility(bundle).orElseThrow();
 
     String sequencingLabId =
-        orgOptional.get().getIdentifier().stream()
-            .filter(identifierEntry -> identifierEntry.getSystem().equals(LABORATORY_ID_URL))
+        notifierFacility.getIdentifier().stream()
+            .filter(
+                identifierEntry -> SYSTEM_DEMIS_PARTICIPANT_ID.equals(identifierEntry.getSystem()))
             .findFirst()
-            .orElseThrow()
+            .orElseThrow(
+                () ->
+                    new IgsServiceException(
+                        ErrorCode.MISSING_IDENTIFIER, "Identifier missing for notifier facility."))
             .getValue();
     if (!sequencingLabIdPattern.matcher(sequencingLabId).matches()) {
       throw new IgsServiceException(
           ErrorCode.INVALID_LAB_ID,
-          format("The lab sequence ID must be a 5-digit number, but found: %s", sequencingLabId));
+          format(
+              "The DEMIS Participant ID must be a 5-digit number, but found: %s", sequencingLabId));
     }
     return sequencingLabId;
   }

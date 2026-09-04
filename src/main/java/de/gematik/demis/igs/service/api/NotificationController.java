@@ -49,7 +49,7 @@ import org.springframework.web.bind.annotation.RestController;
 @AllArgsConstructor
 public class NotificationController {
 
-  static final String FHIR_BUNDLE_BASE = "/$process-notification-sequence";
+  public static final String FHIR_BUNDLE_BASE = "/$process-notification-sequence";
   public final NotificationService service;
 
   /**

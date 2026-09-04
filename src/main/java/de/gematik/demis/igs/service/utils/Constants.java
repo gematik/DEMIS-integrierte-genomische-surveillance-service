@@ -48,8 +48,10 @@ public class Constants {
   public static final String HASH_ALGORITHM = "SHA-256";
 
   public static final String PROFILE_BASE_URL = "https://demis.rki.de/fhir/";
-  public static final String LABORATORY_ID_URL =
-      PROFILE_BASE_URL + "NamingSystem/DemisLaboratoryId";
+  public static final String SYSTEM_NOTIFIER_FACILITY =
+      PROFILE_BASE_URL + "StructureDefinition/NotifierFacility";
+  public static final String SYSTEM_DEMIS_PARTICIPANT_ID =
+      PROFILE_BASE_URL + "NamingSystem/DemisParticipantId";
 
   public static final String EXTENSION_URL = PROFILE_BASE_URL + "StructureDefinition/TransactionID";
   public static final String EXTENSION_URL_RECEPTION_TIME_STAMP_TYPE =

@@ -4,11 +4,11 @@
   <parent>
     <groupId>de.gematik.demis</groupId>
     <artifactId>spring-parent</artifactId>
-    <version>4.0.6</version>
+    <version>4.1.8</version>
     <relativePath></relativePath>
   </parent>
   <artifactId>integrierte-genomische-surveillance-service</artifactId>
-  <version>1.5.0-SNAPSHOT</version>
+  <version>1.6.0-SNAPSHOT</version>
   <name>Integrierte-Genomische-Surveillance-Service</name>
   <packaging>jar</packaging>
   <description>Service that accepts fasta/q and IGS Notifications</description>
@@ -19,10 +19,10 @@
     </license>
   </licenses>
   <properties>
-    <aws.s3.version>2.32.14</aws.s3.version>
-    <bouncycastle.version>1.84</bouncycastle.version>
+    <aws.s3.version>2.53.1</aws.s3.version> <!-- remove dependency management override of netty when upgrading -->
+    <bouncycastle.version>1.85.2</bouncycastle.version>
     <apache.commons.compress.version>1.28.0</apache.commons.compress.version>
-    <apache.commons.logging>1.3.5</apache.commons.logging>
+    <apache.commons.logging>1.4.0</apache.commons.logging>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -51,6 +51,15 @@
         <artifactId>stax2-api</artifactId>
         <version>4.2.2</version>
       </dependency><!-- explicitly declared due to CVE-2025-48977 -->
+      <dependency>
+        <!-- explicitly declared due to CVE-2026-59901, CVE-2026-55831, CVE-2026-55833, CVE-2026-56745, CVE-2026-56819
+             remove when upgrading aws.s3.version -->
+        <groupId>io.netty</groupId>
+        <artifactId>netty-bom</artifactId>
+        <version>${netty.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
   <dependencies>
@@ -106,6 +115,12 @@
     <dependency>
       <groupId>tools.jackson.dataformat</groupId>
       <artifactId>jackson-dataformat-xml</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.okio</groupId>
+      <artifactId>okio-jvm</artifactId>
+      <version>3.18.1</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>

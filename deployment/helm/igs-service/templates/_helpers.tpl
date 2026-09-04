@@ -92,16 +92,35 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Effective secrets to mount.
+Combines the static secrets (.Values.secret) with the S3 credential secret that
+is selected by the object-storage-service feature flag (.Values.featureFlags.useObjectStorageServiceSecret):
+  true  -> .Values.s3Credentials.objectStorageService (object-storage-service-secret)
+  false -> .Values.s3Credentials.minio                (minio-secret, default)
+*/}}
+{{- define "integrierte-genomische-surveillance-service.secrets" -}}
+{{- $secrets := deepCopy (.Values.secret | default dict) -}}
+{{- if .Values.featureFlags.useObjectStorageServiceSecret -}}
+{{- $secrets = merge $secrets (.Values.s3Credentials.objectStorageService | default dict) -}}
+{{- else -}}
+{{- $secrets = merge $secrets (.Values.s3Credentials.minio | default dict) -}}
+{{- end -}}
+{{- $secrets | toYaml -}}
+{{- end -}}
+
+{{/*
 Environment Variables
 */}}
 {{- define "integrierte-genomische-surveillance-service.env" -}}
 {{- $envs := dict -}}
-{{- if .Values.secret -}}
+{{- $secrets := include "integrierte-genomische-surveillance-service.secrets" . | fromYaml -}}
+{{- if $secrets -}}
 {{- $envs = set $envs "SPRING_CONFIG_IMPORT" "configtree:/secrets/*/" }}
 {{- end -}}
+{{- $envs = set $envs "FEATURE_FLAG_USE_OBJECT_STORAGE_SERVICE_SECRET" (.Values.featureFlags.useObjectStorageServiceSecret | default false) -}}
 {{- if .Values.customEnvVars -}}
 {{- range $key, $value := .Values.customEnvVars -}}
-{{ if $value -}}
+{{- if not (kindIs "invalid" $value) -}}
 {{- $envs = set $envs $key $value }}
 {{- end -}}
 {{- end -}}
