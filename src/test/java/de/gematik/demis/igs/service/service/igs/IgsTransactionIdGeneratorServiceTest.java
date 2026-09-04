@@ -35,15 +35,21 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import de.gematik.demis.igs.service.exception.IgsServiceException;
+import de.gematik.demis.igs.service.logging.LoggingContext;
 import de.gematik.demis.igs.service.service.fhir.FhirBundleOperationService;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.assertj.core.api.Assertions;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DiagnosticReport;
 import org.hl7.fhir.r4.model.Organization;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import util.BaseUtil;
 
 class IgsTransactionIdGeneratorServiceTest {
@@ -51,13 +57,16 @@ class IgsTransactionIdGeneratorServiceTest {
   private static final Pattern ID_PATTERN =
       Pattern.compile(
           "IGS-10285-CVDP-[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}");
-
+  private static final String CODE_URL =
+      "https://demis.rki.de/fhir/CodeSystem/notificationCategory";
   private final BaseUtil testUtil = new BaseUtil();
   private final FhirBundleOperationService fhirBundleOperationService =
       mock(FhirBundleOperationService.class);
 
   IgsTransactionIdGeneratorService underTest =
       new IgsTransactionIdGeneratorService(fhirBundleOperationService);
+
+  LoggingContext context = new LoggingContext();
 
   @BeforeEach
   void setUp() {
@@ -68,7 +77,7 @@ class IgsTransactionIdGeneratorServiceTest {
         .when(fhirBundleOperationService.getDiagnosticReport(any()))
         .thenReturn(Optional.of(testUtil.defaultDiagnosticReport()));
     lenient()
-        .when(fhirBundleOperationService.getLaboratoryOrganization(any()))
+        .when(fhirBundleOperationService.determineNotifierFacility(any()))
         .thenReturn(Optional.of(testUtil.defaultOrganization()));
     lenient()
         .when(fhirBundleOperationService.getMolecularSequence(any()))
@@ -76,6 +85,9 @@ class IgsTransactionIdGeneratorServiceTest {
     lenient()
         .when(fhirBundleOperationService.getRelatesToComponentFromComposition(any()))
         .thenReturn(testUtil.defaultRelatesToComponent());
+
+    context = new LoggingContext();
+    ReflectionTestUtils.setField(underTest, "context", context);
   }
 
   @Test
@@ -85,13 +97,16 @@ class IgsTransactionIdGeneratorServiceTest {
   }
 
   @Test
-  void setDefaultLabIdIfIdentifierMissing() {
-    when(fhirBundleOperationService.getLaboratoryOrganization(any())).thenReturn(Optional.empty());
-    String transactionId = underTest.generateTransactionId(testUtil.getDefaultBundle());
-    assertThat(transactionId)
-        .matches(
-            Pattern.compile(
-                "IGS-99999-CVDP-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"));
+  void shouldThrowMissingIdentifierForNotifierFacility() {
+    Organization organizationWithoutIdentifier =
+        testUtil.defaultOrganization().setIdentifier(List.of());
+
+    when(fhirBundleOperationService.determineNotifierFacility(any()))
+        .thenReturn(Optional.of(organizationWithoutIdentifier));
+
+    assertThatThrownBy(() -> underTest.generateTransactionId(testUtil.getDefaultBundle()))
+        .isInstanceOf(IgsServiceException.class)
+        .hasMessage("Identifier missing for notifier facility.");
   }
 
   @ParameterizedTest
@@ -110,10 +125,33 @@ class IgsTransactionIdGeneratorServiceTest {
                         .getIdentifier()
                         .getFirst()
                         .setValue(invalidValue)));
-    when(fhirBundleOperationService.getLaboratoryOrganization(any()))
+    when(fhirBundleOperationService.determineNotifierFacility(any()))
         .thenReturn(Optional.of(organizationWithInvalidLabId));
     assertThatThrownBy(() -> underTest.generateTransactionId(testUtil.getDefaultBundle()))
         .isInstanceOf(IgsServiceException.class)
-        .hasMessage("The lab sequence ID must be a 5-digit number, but found: " + invalidValue);
+        .hasMessage(
+            "The DEMIS Participant ID must be a 5-digit number, but found: " + invalidValue);
+  }
+
+  @Test
+  void shouldWritePathogenCodeToLoggingContext() {
+    DiagnosticReport diagnosticReport = new DiagnosticReport();
+    diagnosticReport.setCode(
+        new CodeableConcept().addCoding(new Coding().setSystem(CODE_URL).setCode("cvdp")));
+
+    when(fhirBundleOperationService.getDiagnosticReport(any()))
+        .thenReturn(Optional.of(diagnosticReport));
+
+    underTest.generateTransactionId(testUtil.getDefaultBundle());
+
+    assertThat(context.getPathogenCode()).isEqualTo("cvdp");
+  }
+
+  @Test
+  void shouldThrowMissingResourceWhenDiagnosticReportIsMissing() {
+    when(fhirBundleOperationService.getDiagnosticReport(any())).thenReturn(Optional.empty());
+    Assertions.assertThatThrownBy(
+            () -> underTest.generateTransactionId(testUtil.getDefaultBundle()))
+        .isInstanceOf(IgsServiceException.class);
   }
 }

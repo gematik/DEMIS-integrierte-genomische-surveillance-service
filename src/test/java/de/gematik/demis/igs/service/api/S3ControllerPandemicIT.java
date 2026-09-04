@@ -50,6 +50,7 @@ import static util.BaseUtil.PATH_TO_FASTQ_GZIP;
 import static util.BaseUtil.TOKEN_FAST_A;
 import static util.BaseUtil.TOKEN_NRZ;
 
+import de.gematik.demis.igs.service.MinioTestBase;
 import de.gematik.demis.igs.service.service.storage.SimpleStorageService;
 import java.util.Map;
 import java.util.UUID;
@@ -63,46 +64,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import util.BaseUtil;
 
-@Testcontainers
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("pathogen")
-class S3ControllerPandemicIT {
-
-  private static final String MINIO_ROOT_USER = "MY_ACCESS_KEY";
-  private static final String MINIO_ROOT_PASSWORD = "VERY_VERY_SECURE_PASSWORD";
-
-  @Container
-  private static final GenericContainer<?> minioContainer =
-      new GenericContainer<>("minio/minio")
-          .withExposedPorts(9000)
-          .withEnv("MINIO_ROOT_USER", MINIO_ROOT_USER)
-          .withEnv("MINIO_ROOT_PASSWORD", MINIO_ROOT_PASSWORD)
-          .waitingFor(new HttpWaitStrategy().forPath("/minio/health/live"))
-          .withCommand("server /mnt/data");
+class S3ControllerPandemicIT extends MinioTestBase {
 
   private final BaseUtil testUtil = new BaseUtil();
   @Autowired private SimpleStorageService storageService;
   @Autowired private MockMvc mockMvc;
-
-  @DynamicPropertySource
-  static void minioProperties(DynamicPropertyRegistry registry) {
-    String storageUrl =
-        "http://" + minioContainer.getHost() + ":" + minioContainer.getFirstMappedPort();
-    registry.add("simple.storage.service.url", () -> storageUrl);
-    registry.add("simple.storage.service.cluster-url", () -> storageUrl);
-    registry.add("simple.storage.service.access-key", () -> MINIO_ROOT_USER);
-    registry.add("simple.storage.service.secret-key", () -> MINIO_ROOT_PASSWORD);
-  }
 
   private void startValidation(String documentId) throws Exception {
     startValidation(documentId, false);

@@ -49,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION_JSON;
+import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION_WITHOUT_NOTIFIER_FACILITY_IDENTIFIER;
 import static util.BaseUtil.PATH_TO_IGS_NOTIFICATION_WRONG_SEQUENCEING_LAB_ID;
 
 import de.gematik.demis.igs.service.service.fhirstorage.FhirStorageWriterClient;
@@ -189,7 +190,7 @@ class NotificationControllerIT {
                       .contentType(APPLICATION_XML_VALUE)
                       .accept(APPLICATION_JSON)
                       .content(notification))
-              .andExpect(status().isUnprocessableEntity())
+              .andExpect(status().isUnprocessableContent())
               .andReturn()
               .getResponse();
       OperationOutcome res =
@@ -266,7 +267,30 @@ class NotificationControllerIT {
           .andExpect(status().isBadRequest())
           .andExpect(
               jsonPath("$.detail")
-                  .value("The lab sequence ID must be a 5-digit number, but found: DEMIS-10285"));
+                  .value(
+                      "The DEMIS Participant ID must be a 5-digit number, but found: DEMIS-10285"));
+    }
+
+    @Test
+    @SneakyThrows
+    void shouldReturn400IfNoIdentifierFound() {
+      when(validationClient.validateXmlBundle(anyString()))
+          .thenReturn(baseUtil.createOutcomeResponse(INFORMATION));
+      when(s3StorageService.getMetadata(FIRST_DOCUMENT_ID))
+          .thenReturn(baseUtil.determineMetadataForValid());
+      when(s3StorageService.getMetadata(SECOND_DOCUMENT_ID))
+          .thenReturn(baseUtil.determineMetadataForValid());
+      String notification =
+          baseUtil.readFileToString(PATH_TO_IGS_NOTIFICATION_WITHOUT_NOTIFIER_FACILITY_IDENTIFIER);
+      mockMvc
+          .perform(
+              post(FHIR_BUNDLE_BASE)
+                  .contentType(APPLICATION_XML_VALUE)
+                  .accept(APPLICATION_JSON)
+                  .content(notification))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.errorCode").value("MISSING_IDENTIFIER"))
+          .andExpect(jsonPath("$.detail").value("Identifier missing for notifier facility."));
     }
 
     @Test

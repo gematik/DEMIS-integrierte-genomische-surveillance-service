@@ -25,6 +25,7 @@ spec:
         {{- include "integrierte-genomische-surveillance-service.selectorLabels" . | nindent 8 }}
         {{- include "integrierte-genomische-surveillance-service.deploymentLabels" . | nindent 8 }}
     spec:
+      {{- $secrets := include "integrierte-genomische-surveillance-service.secrets" . | fromYaml }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets: 
         {{- toYaml . | nindent 8 }}
@@ -40,7 +41,7 @@ spec:
         - name: jfr-volume
           emptyDir: {}
         {{- end }}
-        {{- range $name, $secret := .Values.secret }}
+        {{- range $name, $secret := $secrets }}
         - name: {{ $name | kebabcase }}-secret-volume
           secret:
             secretName: {{ $secret.name }}
@@ -79,7 +80,7 @@ spec:
             - name: jfr-volume
               mountPath: /jfrdump
             {{- end }}
-            {{- range $name, $secret := .Values.secret }}
+            {{- range $name, $secret := $secrets }}
             - name: {{ $name | kebabcase }}-secret-volume
               readOnly: true
               mountPath: "/secrets/{{ $name | kebabcase }}"
@@ -125,10 +126,15 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
-      affinity:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+          matchLabelKeys:
+            - pod-template-hash
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}

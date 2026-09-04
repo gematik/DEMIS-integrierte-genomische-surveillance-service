@@ -22,19 +22,45 @@ required:
     # If not given, the Chart AppVersion will be used
     tag: null
 
+# Feature flags controlling optional behaviour of the service
+# will be removed after MinIO ist completely replaced by seaweedfs
+featureFlags:
+  # Switches the source of the mounted S3 credentials (FEATURE_FLAG_USE_OBJECT_STORAGE_SERVICE_SECRET):
+  #   true  -> object-storage-service-secret (new object-storage-service)
+  #   false -> minio-secret (legacy MinIO, default)
+  useObjectStorageServiceSecret: false
+
 secret:
-  s3AccessKey:
-    name: minio-secret
-    key: MINIO_ROOT_USER
-    propPath: simple/storage/service/access-key
-  s3SecretKey:
-    name: minio-secret
-    key: MINIO_ROOT_PASSWORD
-    propPath: simple/storage/service/secret-key
   s3TlsCertificateInternal:
     name: igs-secret
     key: S3_STORAGE_TLS_CERTIFICATE_INTERNAL
     propPath: simple/storage/service/storage-tls-certificate-internal
+
+# S3 credential secrets, selected via featureFlags.useObjectStorageServiceSecret.
+# Both variants expose the credentials under the same propPath, so the
+# application configuration (Spring configtree) stays identical regardless
+# of the underlying secret source.
+s3Credentials:
+  # Default: legacy MinIO (featureFlags.useObjectStorageServiceSecret = false / unset)
+  minio:
+    s3AccessKey:
+      name: minio-secret
+      key: MINIO_ROOT_USER
+      propPath: simple/storage/service/access-key
+    s3SecretKey:
+      name: minio-secret
+      key: MINIO_ROOT_PASSWORD
+      propPath: simple/storage/service/secret-key
+  # New object-storage-service (featureFlags.useObjectStorageServiceSecret = true)
+  objectStorageService:
+    s3AccessKey:
+      name: object-storage-service-secret
+      key: S3_ACCESS_KEY
+      propPath: simple/storage/service/access-key
+    s3SecretKey:
+      name: object-storage-service-secret
+      key: S3_SECRET_KEY
+      propPath: simple/storage/service/secret-key
 
 # Extra Labels to be added
 # E.g.
@@ -49,7 +75,7 @@ deploymentLabels: {}
 # customEnvVars
 #   key: value
 customEnvVars:
-  JAVA_TOOL_OPTIONS: "-XX:ActiveProcessorCount=2 -XX:MaxRAMPercentage=40.0 -XX:MaxMetaspaceSize=160m -XX:+UseG1GC"
+  JAVA_TOOL_OPTIONS: "-XX:ActiveProcessorCount=2 -XX:MaxRAMPercentage=25.0 -XX:MaxMetaspaceSize=160m -XX:+UseG1GC"
   TZ: "Europe/Berlin"
   API_ENTRYPOINT: "/"
   DEMIS_NETWORK_FHIR_STORAGE_WRITER_CONTEXT_PATH: "/"
@@ -129,10 +155,10 @@ service:
 # Default Resources
 resources:
   limits:
-    memory: "600Mi"
+    memory: "500Mi"
   requests:
     cpu: "300m"
-    memory: "600Mi"
+    memory: "500Mi"
 
 autoscaling:
   enabled: false
@@ -144,8 +170,6 @@ autoscaling:
 nodeSelector: {}
 
 tolerations: []
-
-affinity: {}
 
 istio:
   enable: false

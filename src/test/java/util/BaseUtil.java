@@ -120,6 +120,8 @@ public class BaseUtil {
   public static final String PATH_TO_IGS_NOTIFICATION_JSON = "igsNotification/IGSMeldung.json";
   public static final String PATH_TO_IGS_NOTIFICATION_WRONG_SEQUENCEING_LAB_ID =
       "igsNotification/notificationWithInvalidSequenceLabId.xml";
+  public static final String PATH_TO_IGS_NOTIFICATION_WITHOUT_NOTIFIER_FACILITY_IDENTIFIER =
+      "igsNotification/notificationWithoutNotifierFacilityIdentifier.xml";
   public static final String PATH_TO_IGS_NOTIFICATION_BUNDLE =
       "igsNotification/notificationAsBundle.xml";
   public static final String PATH_TO_INVALID_IGS_NOTIFICATION =

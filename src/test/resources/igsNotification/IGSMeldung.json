@@ -145,14 +145,9 @@
           {
             "fullUrl": "https://demis.rki.de/fhir/igs/Organization/3df4b1aa-f4ae-3b42-b957-9ab8c1065e0f",
             "resource": {
-              "identifier": [
-                {
-                  "system": "https://demis.rki.de/fhir/NamingSystem/DemisLaboratoryId",
+              "identifier": [ {
+                  "system": "https://demis.rki.de/fhir/NamingSystem/DemisParticipantId",
                   "value": "12345"
-                },
-                {
-                  "system": "https://fhir.kbv.de/NamingSystem/KBV_NS_Base_BSNR",
-                  "value": "98765430"
                 }
               ],
               "telecom": [
@@ -290,7 +285,7 @@
               "name": "Primärlabor",
               "identifier": [
                 {
-                  "system": "https://fhir.kbv.de/NamingSystem/KBV_NS_Base_BSNR",
+                  "system": "https://demis.rki.de/fhir/NamingSystem/DemisParticipantId",
                   "value": "98765430"
                 }
               ]

