@@ -30,6 +30,7 @@ package de.gematik.demis.igs.service.service.storage;
 import static de.gematik.demis.igs.service.exception.ErrorCode.FILE_NOT_FOUND;
 import static de.gematik.demis.igs.service.service.storage.S3StorageService.LIFECYCLE_RULE_ID_TO_VALIDATE;
 import static de.gematik.demis.igs.service.service.storage.S3StorageService.LIFECYCLE_RULE_ID_VALID;
+import static de.gematik.demis.igs.service.utils.Constants.HASH_METADATA_NAME;
 import static de.gematik.demis.igs.service.utils.Constants.UPLOAD_STATUS;
 import static de.gematik.demis.igs.service.utils.Constants.UPLOAD_STATUS_DONE;
 import static de.gematik.demis.igs.service.utils.Constants.VALIDATION_DESCRIPTION;
@@ -211,6 +212,75 @@ class S3StorageServiceTest {
 
   @Nested
   class MetadataTests {
+
+    static Stream<Arguments> shouldUpdateMetaDataWithRespectingCaseOfDeliveredMetadata() {
+      return Stream.of(
+          of(
+              Map.of("Validation-Status", "ValueOld", "Hash", "ValueOld2"),
+              List.of(pair(VALIDATION_STATUS, "ValueNew"), pair("test3", "ValueCompleteNew")),
+              Map.of(
+                  "Validation-Status",
+                  "ValueNew",
+                  "Hash",
+                  "ValueOld2",
+                  "test3",
+                  "ValueCompleteNew")),
+          of(
+              Map.of(
+                  "Validation-Status",
+                  "ValueOld",
+                  "Hash",
+                  "ValueOld2",
+                  "Additional-Value",
+                  "ValueOld3"),
+              List.of(pair(VALIDATION_STATUS, "ValueNew"), pair(HASH_METADATA_NAME, "ValueNew2")),
+              Map.of(
+                  "Validation-Status",
+                  "ValueNew",
+                  "Hash",
+                  "ValueNew2",
+                  "Additional-Value",
+                  "ValueOld3")),
+          of(
+              Map.of(),
+              List.of(pair(VALIDATION_STATUS, "ValueNew"), pair(HASH_METADATA_NAME, "ValueNew2")),
+              Map.of(VALIDATION_STATUS, "ValueNew", HASH_METADATA_NAME, "ValueNew2")),
+          of(
+              Map.of(VALIDATION_STATUS, "ValueOld", HASH_METADATA_NAME, "ValueOld2"),
+              List.of(pair(VALIDATION_STATUS, "ValueNew"), pair(HASH_METADATA_NAME, "ValueNew2")),
+              Map.of(VALIDATION_STATUS, "ValueNew", HASH_METADATA_NAME, "ValueNew2")),
+          of(
+              Map.of(
+                  "Validation-Status",
+                  "ValueOld",
+                  "Hash",
+                  "ValueOld2",
+                  "Additional-Value",
+                  "ValueOld3"),
+              List.of(pair(VALIDATION_STATUS, "ValueNew")),
+              Map.of(
+                  "Validation-Status",
+                  "ValueNew",
+                  "Hash",
+                  "ValueOld2",
+                  "Additional-Value",
+                  "ValueOld3")));
+    }
+
+    @SneakyThrows
+    @ParameterizedTest
+    @MethodSource
+    void shouldUpdateMetaDataWithRespectingCaseOfDeliveredMetadata(
+        Map<String, String> existingMetaData,
+        List<Pair> newMetaData,
+        Map<String, String> expectedMetaData) {
+      when(client.headObject(headObjectRequestCaptor.capture()))
+          .thenReturn(
+              HeadObjectResponse.builder().metadata(existingMetaData).contentLength(100L).build());
+      underTest.updateMetaData(EXAMPLE_ID, newMetaData);
+      verify(client).copyObject(copyObjectRequestCaptor.capture());
+      assertThat(copyObjectRequestCaptor.getValue().metadata()).isEqualTo(expectedMetaData);
+    }
 
     @Test
     @SneakyThrows

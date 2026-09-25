@@ -74,6 +74,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedCaseInsensitiveMap;
 
 /** Service class for handling DocumentReference operations */
 @Slf4j
@@ -123,15 +124,17 @@ public class DocumentReferenceService {
    * @param documentId the id of the document to validate
    */
   public void prepareValidation(String documentId) {
-    Map<String, String> metaData = new HashMap<>(storageService.getMetadata(documentId));
+    Map<String, String> metaData = new LinkedCaseInsensitiveMap<>();
+    metaData.putAll(storageService.getMetadata(documentId));
     String uploadStatus = metaData.get(UPLOAD_STATUS);
-    if (uploadStatus == null || !uploadStatus.equals(UPLOAD_STATUS_DONE)) {
+    if (uploadStatus == null || !uploadStatus.equalsIgnoreCase(UPLOAD_STATUS_DONE)) {
       throw new IgsServiceException(
           UPLOAD_DOCUMENT_ONGOING,
           "Der Upload des angefragen Dokuments ist noch nicht abgeschlossen.");
     }
     String validationStatus = metaData.get(VALIDATION_STATUS);
-    if (validationStatus != null && !validationStatus.equals(VALIDATION_NOT_INITIATED.name())) {
+    if (validationStatus != null
+        && !validationStatus.equalsIgnoreCase(VALIDATION_NOT_INITIATED.name())) {
       throw new IgsServiceException(
           INVALID_DOCUMENT_VALIDATION,
           format("Document with id %s is already validating", documentId));
@@ -171,7 +174,8 @@ public class DocumentReferenceService {
   public void validateBinary(String documentId, String authorization) {
     validationTracker.init(documentId);
     InputStream stream = storageService.getBlob(documentId);
-    Map<String, String> metaData = storageService.getMetadata(documentId);
+    Map<String, String> metaData = new LinkedCaseInsensitiveMap<>();
+    metaData.putAll(storageService.getMetadata(documentId));
     Pair pair = storageService.getFirstBytesOf(documentId);
     InputStream hashValidated =
         proxy.run(

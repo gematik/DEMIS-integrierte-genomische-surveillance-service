@@ -61,7 +61,6 @@ import java.io.InputStream;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -71,6 +70,7 @@ import org.awaitility.core.ConditionTimeoutException;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedCaseInsensitiveMap;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -264,9 +264,15 @@ public class S3StorageService implements SimpleStorageService {
   }
 
   protected synchronized void updateMetaData(String documentId, List<Pair> newMetaData) {
-    Map<String, String> metaData = new HashMap<>(getMetadata(documentId));
+    Map<String, String> metaData = new LinkedCaseInsensitiveMap<>();
+    metaData.putAll(getMetadata(documentId));
     for (Pair pair : newMetaData) {
-      metaData.put(pair.first(), pair.second());
+      String key =
+          metaData.keySet().stream()
+              .filter(k -> k.equalsIgnoreCase(pair.first()))
+              .findFirst()
+              .orElse(pair.first());
+      metaData.put(key, pair.second());
     }
     CopyObjectRequest copyRequest =
         CopyObjectRequest.builder()
@@ -317,9 +323,10 @@ public class S3StorageService implements SimpleStorageService {
     if (validationInfo.isDone()) {
       return validationInfo;
     }
-    Map<String, String> metadata = getMetadata(validationInfo.getDocumentId());
-    validationInfo.setStatus(metadata.get(VALIDATION_STATUS));
-    validationInfo.setMessage(metadata.get(VALIDATION_DESCRIPTION));
+    Map<String, String> metaData = new LinkedCaseInsensitiveMap<>();
+    metaData.putAll(getMetadata(validationInfo.getDocumentId()));
+    validationInfo.setStatus(metaData.get(VALIDATION_STATUS));
+    validationInfo.setMessage(metaData.get(VALIDATION_DESCRIPTION));
     return validationInfo;
   }
 
@@ -392,7 +399,8 @@ public class S3StorageService implements SimpleStorageService {
 
   private void moveFileToValidBucket(String documentId) {
     try {
-      Map<String, String> metaData = getMetadata(documentId);
+      Map<String, String> metaData = new LinkedCaseInsensitiveMap<>();
+      metaData.putAll(getMetadata(documentId));
       if (isNull(metaData.get(VALIDATION_STATUS))
           || !metaData.get(VALIDATION_STATUS).equals(VALID.name())) {
         log.error("Document {} is not valid, skipping transfer", documentId);
