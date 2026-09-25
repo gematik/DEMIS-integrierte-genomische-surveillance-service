@@ -56,7 +56,7 @@ import static util.BaseUtil.PATH_TO_FASTQ;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import de.gematik.demis.igs.service.MinioTestBase;
+import de.gematik.demis.igs.service.S3StorageTestBase;
 import de.gematik.demis.igs.service.service.storage.SimpleStorageService;
 import jakarta.annotation.PostConstruct;
 import java.io.File;
@@ -84,7 +84,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import util.BaseUtil;
 
-class DocumentReferenceControllerIT extends MinioTestBase {
+class DocumentReferenceControllerIT extends S3StorageTestBase {
 
   public static final String PREFIX = "/fhir/DocumentReference/";
   public static final String UUID_REGEX =

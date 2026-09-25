@@ -73,7 +73,7 @@ import static util.BaseUtil.PATH_TO_GZIP_INVALID;
 import static util.BaseUtil.TOKEN_NRZ;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.gematik.demis.igs.service.MinioTestBase;
+import de.gematik.demis.igs.service.S3StorageTestBase;
 import de.gematik.demis.igs.service.api.model.CompletedChunk;
 import de.gematik.demis.igs.service.api.model.MultipartUploadComplete;
 import de.gematik.demis.igs.service.api.model.S3Info;
@@ -114,7 +114,7 @@ import util.BaseUtil;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class S3ControllerIT extends MinioTestBase {
+public class S3ControllerIT extends S3StorageTestBase {
 
   private static final String DOCUMENT_ID = UUID.randomUUID().toString();
   private static final String NOT_EXISTING_DOCUMENT_ID = "NotExisting";
@@ -490,8 +490,8 @@ public class S3ControllerIT extends MinioTestBase {
           new Proxy(
               Proxy.Type.HTTP,
               new InetSocketAddress(
-                  MinioTestBase.MINIO_CONTAINER.getHost(),
-                  MinioTestBase.MINIO_CONTAINER.getFirstMappedPort()));
+                  S3StorageTestBase.STORAGE_CONTAINER.getHost(),
+                  S3StorageTestBase.STORAGE_CONTAINER.getFirstMappedPort()));
       HttpURLConnection connection = (HttpURLConnection) presignedUrl.openConnection(proxy);
       connection.setDoOutput(true);
       connection.setRequestMethod("PUT");

@@ -66,6 +66,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedCaseInsensitiveMap;
 
 /** Service class for validating incoming FHIR notifications */
 @Slf4j
@@ -190,15 +191,16 @@ public class NotificationValidatorService {
   }
 
   private void ensureSequenceDataHasBeenValidated(String documentId) {
-    Map<String, String> metadata;
+    Map<String, String> metaData;
     try {
-      metadata = storageService.getMetadata(documentId);
+      metaData = new LinkedCaseInsensitiveMap<>();
+      metaData.putAll(storageService.getMetadata(documentId));
     } catch (IgsServiceException e) {
       throw new IgsServiceException(
           SEQUENCE_DATA_NOT_VALID,
           String.format("DocumentReference with ID %s has not been found", documentId));
     }
-    String validationStatus = metadata.get(VALIDATION_STATUS);
+    String validationStatus = metaData.get(VALIDATION_STATUS);
     if (validationStatus == null
         || validationStatus.isEmpty()
         || !validationStatus.equalsIgnoreCase(Constants.ValidationStatus.VALID.name())) {

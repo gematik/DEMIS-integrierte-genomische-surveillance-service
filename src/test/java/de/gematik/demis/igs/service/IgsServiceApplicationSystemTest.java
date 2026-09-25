@@ -41,7 +41,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ExtendWith(OutputCaptureExtension.class)
 @ActiveProfiles("object-storage")
-class IgsServiceApplicationSystemTest extends MinioTestBase {
+class IgsServiceApplicationSystemTest extends S3StorageTestBase {
 
   @Autowired private SimpleStorageServiceConfiguration simpleStorageServiceConfiguration;
 

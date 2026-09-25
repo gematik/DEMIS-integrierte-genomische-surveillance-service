@@ -2,7 +2,7 @@
 
 # Release Notes IGS-Service
 
-## Release 1.6.0
+## Release 1.6.1
 - Replaced pod anti-affinity with topology spread constraints for pod distribution
 - arranged jvm options and resource limits
 - fixed handling of falsy custom environment variables (false, 0) in helm chart
@@ -11,8 +11,13 @@
 - Added test for lifecycle configuration and switched integration tests to SeaweedFS
 - added pathogen code logging
 - added vex documents
-- updated docker base image to gematik1/osadl-alpine-openjdk25-jre:1.0.7
 - removed default DEMIS participant ID in order to force the user to provide a valid DEMIS participant ID in the configuration
+- updated docker base image to gematik1/osadl-alpine-openjdk25-jre:1.0.8
+- changed IT-Tests from minio to SeaweedFS
+- updated minor/patch versions of dependencies
+- metadata of s3 objects is read case insensitively
+- metadata headers are now matched case-insensitively when read from object storage, preserving the original casing from the stored metadata
+- Updated minor/patch versions of dependencies
 
 ## Release 1.5.0
 - arranged jvm options and resource limits

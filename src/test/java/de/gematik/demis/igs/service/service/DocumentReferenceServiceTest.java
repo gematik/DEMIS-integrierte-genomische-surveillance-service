@@ -74,12 +74,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -433,5 +436,39 @@ class DocumentReferenceServiceTest {
           () -> assertThat(res.getDocumentId()).isEqualTo(DOCUMENT_ID),
           () -> assertThat(res.getStatus()).isEqualTo(VALID.name()));
     }
+  }
+
+  @ParameterizedTest
+  @MethodSource("supplyMetadata")
+  void shouldIgnoreHeaderCaseWithPrepareValidation(
+      String uploadStatusHeaderName,
+      String uploadStatusHeaderValue,
+      String validationStatusHeaderName,
+      String validationStatusHeaderValue) {
+    when(storageService.getMetadata(DOCUMENT_ID))
+        .thenReturn(
+            Map.of(
+                uploadStatusHeaderName,
+                uploadStatusHeaderValue,
+                validationStatusHeaderName,
+                validationStatusHeaderValue));
+    assertDoesNotThrow(() -> underTest.prepareValidation(DOCUMENT_ID));
+    verify(storageService).setValidatingStatusToPending(DOCUMENT_ID);
+  }
+
+  static Stream<Arguments> supplyMetadata() {
+    return Stream.of(
+        Arguments.of(
+            UPLOAD_STATUS, UPLOAD_STATUS_DONE, VALIDATION_STATUS, VALIDATION_NOT_INITIATED.name()),
+        Arguments.of(
+            UPLOAD_STATUS.toUpperCase(),
+            UPLOAD_STATUS_DONE.toUpperCase(),
+            VALIDATION_STATUS.toUpperCase(),
+            VALIDATION_NOT_INITIATED.name().toUpperCase()),
+        Arguments.of(
+            UPLOAD_STATUS.toLowerCase(),
+            UPLOAD_STATUS_DONE.toLowerCase(),
+            VALIDATION_STATUS.toLowerCase(),
+            VALIDATION_NOT_INITIATED.name().toLowerCase()));
   }
 }

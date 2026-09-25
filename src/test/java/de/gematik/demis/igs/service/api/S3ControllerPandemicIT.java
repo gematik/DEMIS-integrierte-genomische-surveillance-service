@@ -50,7 +50,7 @@ import static util.BaseUtil.PATH_TO_FASTQ_GZIP;
 import static util.BaseUtil.TOKEN_FAST_A;
 import static util.BaseUtil.TOKEN_NRZ;
 
-import de.gematik.demis.igs.service.MinioTestBase;
+import de.gematik.demis.igs.service.S3StorageTestBase;
 import de.gematik.demis.igs.service.service.storage.SimpleStorageService;
 import java.util.Map;
 import java.util.UUID;
@@ -70,7 +70,7 @@ import util.BaseUtil;
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("pathogen")
-class S3ControllerPandemicIT extends MinioTestBase {
+class S3ControllerPandemicIT extends S3StorageTestBase {
 
   private final BaseUtil testUtil = new BaseUtil();
   @Autowired private SimpleStorageService storageService;
